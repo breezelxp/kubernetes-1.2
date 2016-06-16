@@ -512,11 +512,12 @@ func describePod(pod *api.Pod, events *api.EventList) (string, error) {
 		}
 		fmt.Fprintf(out, "IP:\t%s\n", pod.Status.PodIP)
 		if pod.Spec.NetworkMode == api.PodNetworkModeMacVlan {
-			fmt.Fprint(out, "InnerIP info:\n  Address\tMacAddress\tGateway\tVlanID\n")
-			fmt.Fprint(out, "  -----------------\t-----------------\t-----------------\t-----------------\n")
-			fmt.Fprintf(out, "  %s\t%s\t%s\t%d\n",
+			fmt.Fprint(out, "InnerIP info:\n  Address\tMacAddress\tSubnet\tGateway\tVlanID\n")
+			fmt.Fprint(out, "  -----------------\t-----------------\t-----------------\t-----------------\t-----------------\n")
+			fmt.Fprintf(out, "  %s\t%s\t%s\t%s\t%d\n",
 				pod.Status.Network.Address,
 				pod.Status.Network.MacAddress,
+				pod.Status.Network.Subnet,
 				pod.Status.Network.Gateway,
 				pod.Status.Network.VlanID)
 
@@ -1626,13 +1627,14 @@ func DescribeVMs(node *api.Node, w io.Writer) {
 		fmt.Fprint(w, "No VMs.")
 		return
 	}
-	fmt.Fprint(w, "VMs:\n  AssetID\tAddress\tMacAddress\tGateway\tVlanID\n")
-	fmt.Fprint(w, "  -----------------\t-----------------\t-----------------\t-----------------\t-----\n")
+	fmt.Fprint(w, "VMs:\n  AssetID\tAddress\tMacAddress\tSubnet\tGateway\tVlanID\n")
+	fmt.Fprint(w, "  -----------------\t-----------------\t-----------------\t-----------------\t-----------------\t-----\n")
 	for _, vm := range node.VMs {
-		fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%d\n",
+		fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%s\t%d\n",
 			vm.AssetID,
 			vm.Address,
 			vm.MacAddress,
+			vm.Subnet,
 			vm.Gateway,
 			vm.VlanID)
 	}
