@@ -73,6 +73,7 @@ func (gsec *Client) Send(dataid uint32, data []byte) error {
 
 	if _, error := gsec.Conn.Write(packageData); error != nil {
 		glog.Errorf("fail send data to data pipe: %v", error)
+		gsec.Close()
 		return error
 	}
 
