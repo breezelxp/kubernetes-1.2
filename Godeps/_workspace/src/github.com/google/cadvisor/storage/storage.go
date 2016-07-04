@@ -43,7 +43,12 @@ func New(name string) (StorageDriver, error) {
 	}
 	f, ok := registeredPlugins[name]
 	if !ok {
-		return nil, fmt.Errorf("unknown backend storage driver: %s", name)
+
+		var pluginname string
+		for k := range registeredPlugins {
+			pluginname = pluginname + k + ":"
+		}
+		return nil, fmt.Errorf("unknown backend storage driver: %s registered plugins size: %d, plugin:%s", name, len(registeredPlugins), pluginname)
 	}
 	return f()
 }

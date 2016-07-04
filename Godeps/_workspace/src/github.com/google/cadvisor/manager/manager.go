@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/google/cadvisor/cache/memory"
 	"github.com/google/cadvisor/collector"
 	"github.com/google/cadvisor/container"
@@ -35,11 +36,10 @@ import (
 	"github.com/google/cadvisor/fs"
 	info "github.com/google/cadvisor/info/v1"
 	"github.com/google/cadvisor/info/v2"
+
 	"github.com/google/cadvisor/utils/cpuload"
 	"github.com/google/cadvisor/utils/oomparser"
 	"github.com/google/cadvisor/utils/sysfs"
-
-	"github.com/golang/glog"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 )
 
@@ -116,7 +116,7 @@ type Manager interface {
 
 	// Returns debugging information. Map of lines per category.
 	DebugInfo() map[string][]string
-	
+
 	// Get numa information about the machine
 	GetNUMAInfo() (*info.NUMAInfo, error)
 }

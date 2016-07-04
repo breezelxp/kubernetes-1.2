@@ -33,12 +33,10 @@ func (dhead *dataHead) packageData(data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("can not package the data head,%v", err)
 	}
 
-	// package body
-	if _, err := buffer.Write(data); nil != err {
-		return nil, fmt.Errorf("can not package the data body ,%v", err)
-	}
+	head := buffer.Bytes()
+	head = append(head, data...)
 
-	return buffer.Bytes(), nil
+	return head, nil
 }
 
 // Connect connect to gse data pipe
@@ -63,7 +61,7 @@ func (gsec *Client) Send(dataid uint32, data []byte) error {
 			return error
 		}
 	}
-
+	//glog.V(0).Info(string(data), len(data))
 	dhead := dataHead{0xc01, dataid, 0, uint32(len(data)), [2]uint32{0, 0}}
 
 	packageData, err := dhead.packageData(data)
@@ -71,11 +69,15 @@ func (gsec *Client) Send(dataid uint32, data []byte) error {
 		return err
 	}
 
-	if _, error := gsec.Conn.Write(packageData); error != nil {
-		glog.Errorf("fail send data to data pipe: %v", error)
+	//glog.V(0).Info(string(packageData[24:]), dhead.bodylen)
+	//var n int
+	if _, err = gsec.Conn.Write(packageData); err != nil {
+		glog.Errorf("fail send data to data pipe: %v", err)
 		gsec.Close()
-		return error
+		return err
 	}
+
+	//glog.V(0).Info("already send:%d", n)
 
 	return nil
 }

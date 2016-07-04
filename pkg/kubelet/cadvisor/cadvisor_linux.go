@@ -88,6 +88,7 @@ func New(backendStorageName string, port uint) (Interface, error) {
 }
 
 func (cc *cadvisorClient) Start() error {
+
 	return cc.Manager.Start()
 }
 
@@ -196,5 +197,5 @@ func (cc *cadvisorClient) WatchEvents(request *events.Request) (*events.EventCha
 }
 
 func (cc *cadvisorClient) NUMAInfo() (*cadvisorapi.NUMAInfo, error) {
-       return cc.GetNUMAInfo()
+	return cc.GetNUMAInfo()
 }

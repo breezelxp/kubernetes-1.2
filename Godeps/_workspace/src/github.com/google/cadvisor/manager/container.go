@@ -77,6 +77,9 @@ type containerData struct {
 
 	// Runs custom metric collectors.
 	collectorManager collector.CollectorManager
+
+	// collect information from kubelet
+	callfunc func() (string, error)
 }
 
 // jitter returns a time.Duration between duration and duration + maxFactor * duration,
@@ -544,6 +547,7 @@ func (c *containerData) updateStats() error {
 		}
 		return err
 	}
+
 	err = c.memoryCache.AddStats(ref, stats)
 	if err != nil {
 		return err
