@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/golang/glog"
 	"net"
+	"time"
 )
 
 type dataHead struct {
@@ -69,10 +70,16 @@ func (gsec *Client) Send(dataid uint32, data []byte) error {
 		return err
 	}
 
+	err = gsec.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+
+	if err != nil {
+		glog.Errorf(" SET WRITE DEAD LINE FAILED: %v", err)
+	}
+
 	//glog.V(0).Info(string(packageData[24:]), dhead.bodylen)
 	//var n int
 	if _, err = gsec.Conn.Write(packageData); err != nil {
-		glog.Errorf("fail send data to data pipe: %v", err)
+		glog.Errorf("SEND DATA TO DATA PIPE FAILED: %v", err)
 		gsec.Close()
 		return err
 	}
