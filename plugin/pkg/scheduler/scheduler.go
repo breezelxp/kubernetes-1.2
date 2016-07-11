@@ -146,6 +146,8 @@ func (s *Scheduler) scheduleOne() {
 		s.config.Recorder.Eventf(pod, api.EventTypeNormal, "Scheduled", "Successfully assigned %v to %v", pod.Name, dest)
 		// tell the model to assume that this binding took effect.
 		assumed := *pod
+		assumed.Status.CpuSet = dest.CpuSet
+		assumed.Status.Network = dest.Network
 		assumed.Spec.NodeName = dest.Name
 		s.config.Modeler.AssumePod(&assumed)
 	})

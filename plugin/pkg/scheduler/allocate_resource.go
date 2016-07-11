@@ -31,6 +31,7 @@ func NumaCpuSelect(pod *api.Pod, node *api.Node, pods []*api.Pod) ([]string, []s
 	}
 	cpuMap := bitmap.NewNumaBitmapSize(uint(nodeCores), numaNode)
 	for _, existingPod := range pods {
+		glog.V(3).Infof("existingPod:%s [cpuset: %s]", existingPod.Name, existingPod.Status.CpuSet)
 		set := strings.Split(existingPod.Status.CpuSet, ",")
 		for _, c := range set {
 			coreNo, _ := strconv.Atoi(c)
