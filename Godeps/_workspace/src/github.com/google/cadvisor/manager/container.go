@@ -42,6 +42,7 @@ import (
 )
 
 // Housekeeping interval.
+var enableLoadReader = flag.Bool("enable_load_reader", false, "Whether to enable cpu load reader")
 var HousekeepingInterval = flag.Duration("housekeeping_interval", 1*time.Second, "Interval between container housekeepings")
 
 var cgroupPathRegExp = regexp.MustCompile(`devices[^:]*:(.*?)[,;$]`)
@@ -77,9 +78,6 @@ type containerData struct {
 
 	// Runs custom metric collectors.
 	collectorManager collector.CollectorManager
-
-	// collect information from kubelet
-	callfunc func() (string, error)
 }
 
 // jitter returns a time.Duration between duration and duration + maxFactor * duration,
@@ -306,7 +304,7 @@ func (c *containerData) GetProcessList(cadvisorContainer string, inHostNamespace
 	return processes, nil
 }
 
-func newContainerData(containerName string, memoryCache *memory.InMemoryCache, handler container.ContainerHandler, loadReader cpuload.CpuLoadReader, logUsage bool, collectorManager collector.CollectorManager, maxHousekeepingInterval time.Duration, allowDynamicHousekeeping bool) (*containerData, error) {
+func newContainerData(containerName string, memoryCache *memory.InMemoryCache, handler container.ContainerHandler, logUsage bool, collectorManager collector.CollectorManager, maxHousekeepingInterval time.Duration, allowDynamicHousekeeping bool) (*containerData, error) {
 	if memoryCache == nil {
 		return nil, fmt.Errorf("nil memory storage")
 	}
@@ -324,7 +322,6 @@ func newContainerData(containerName string, memoryCache *memory.InMemoryCache, h
 		housekeepingInterval:     *HousekeepingInterval,
 		maxHousekeepingInterval:  maxHousekeepingInterval,
 		allowDynamicHousekeeping: allowDynamicHousekeeping,
-		loadReader:               loadReader,
 		logUsage:                 logUsage,
 		loadAvg:                  -1.0, // negative value indicates uninitialized.
 		stop:                     make(chan bool, 1),
@@ -333,6 +330,17 @@ func newContainerData(containerName string, memoryCache *memory.InMemoryCache, h
 	cont.info.ContainerReference = ref
 
 	cont.loadDecay = math.Exp(float64(-cont.housekeepingInterval.Seconds() / 10))
+
+	if *enableLoadReader {
+		// Create cpu load reader.
+		loadReader, err := cpuload.New()
+		if err != nil {
+			// TODO(rjnagal): Promote to warning once we support cpu load inside namespaces.
+			glog.Infof("Could not initialize cpu load reader for %q: %s", ref.Name, err)
+		} else {
+			cont.loadReader = loadReader
+		}
+	}
 
 	err = cont.updateSpec()
 	if err != nil {
@@ -378,6 +386,16 @@ func (self *containerData) nextHousekeeping(lastHousekeeping time.Time) time.Tim
 func (c *containerData) housekeeping() {
 	// Start any background goroutines - must be cleaned up in c.handler.Cleanup().
 	c.handler.Start()
+	defer c.handler.Cleanup()
+
+	// Initialize cpuload reader - must be cleaned up in c.loadReader.Stop()
+	if c.loadReader != nil {
+		err := c.loadReader.Start()
+		if err != nil {
+			glog.Warningf("Could not start cpu load stat collector for %q: %s", c.info.Name, err)
+		}
+		defer c.loadReader.Stop()
+	}
 
 	// Long housekeeping is either 100ms or half of the housekeeping interval.
 	longHousekeeping := 100 * time.Millisecond
@@ -391,8 +409,6 @@ func (c *containerData) housekeeping() {
 	for {
 		select {
 		case <-c.stop:
-			// Cleanup container resources before stopping housekeeping.
-			c.handler.Cleanup()
 			// Stop housekeeping when signaled.
 			return
 		default:
@@ -547,7 +563,6 @@ func (c *containerData) updateStats() error {
 		}
 		return err
 	}
-
 	err = c.memoryCache.AddStats(ref, stats)
 	if err != nil {
 		return err

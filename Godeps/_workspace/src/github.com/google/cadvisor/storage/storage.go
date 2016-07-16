@@ -16,6 +16,7 @@ package storage
 
 import (
 	"fmt"
+	"sort"
 
 	info "github.com/google/cadvisor/info/v1"
 )
@@ -43,12 +44,16 @@ func New(name string) (StorageDriver, error) {
 	}
 	f, ok := registeredPlugins[name]
 	if !ok {
-
-		var pluginname string
-		for k := range registeredPlugins {
-			pluginname = pluginname + k + ":"
-		}
-		return nil, fmt.Errorf("unknown backend storage driver: %s registered plugins size: %d, plugin:%s", name, len(registeredPlugins), pluginname)
+		return nil, fmt.Errorf("unknown backend storage driver: %s", name)
 	}
 	return f()
+}
+
+func ListDrivers() []string {
+	drivers := make([]string, 0, len(registeredPlugins))
+	for name := range registeredPlugins {
+		drivers = append(drivers, name)
+	}
+	sort.Strings(drivers)
+	return drivers
 }
