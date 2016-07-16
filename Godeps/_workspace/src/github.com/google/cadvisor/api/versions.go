@@ -42,6 +42,7 @@ const (
 	versionApi       = "version"
 	psApi            = "ps"
 	customMetricsApi = "appmetrics"
+	numaInfoApi      = "numainfo"
 )
 
 // Interface for a cAdvisor API version
@@ -513,6 +514,12 @@ func (self *version2_1) HandleRequest(requestType string, request []string, m ma
 			}
 		}
 		return writeResult(contStats, w)
+	case numaInfoApi:
+		numa, err := m.GetNUMAInfo()
+		if nil != err {
+			return err
+		}
+		return writeResult(numa, w)
 	default:
 		return self.baseVersion.HandleRequest(requestType, request, m, w, r)
 	}
