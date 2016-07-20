@@ -18,6 +18,7 @@ package cadvisor
 
 import (
 	"github.com/google/cadvisor/storage"
+	_ "github.com/google/cadvisor/storage/gsepipeline"
 	_ "github.com/google/cadvisor/storage/influxdb"
 	_ "github.com/google/cadvisor/storage/redis"
 	_ "github.com/google/cadvisor/storage/statsd"

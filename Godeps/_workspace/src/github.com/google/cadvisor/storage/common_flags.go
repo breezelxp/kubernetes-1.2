@@ -25,4 +25,7 @@ var ArgDbHost = flag.String("storage_driver_host", "localhost:8086", "database h
 var ArgDbName = flag.String("storage_driver_db", "cadvisor", "database name")
 var ArgDbTable = flag.String("storage_driver_table", "stats", "table name")
 var ArgDbIsSecure = flag.Bool("storage_driver_secure", false, "use secure connection with database")
+var ArgKubeletIp = flag.String("storage_kubelet_address", "127.0.0.1", "kubelet api address")
+var ArgKubeletPort = flag.Int("storage_kubelet_port", 10255, "kubelet api port")
+var ArgDataId = flag.Uint64("storage_dataid", 0, "report data to the storage by this dataid, default is -1")
 var ArgDbBufferDuration = flag.Duration("storage_driver_buffer_duration", 60*time.Second, "Writes in the storage driver will be buffered for this duration, and committed to the non memory backends as a single transaction")
