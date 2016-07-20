@@ -2992,6 +2992,8 @@ type VM struct {
 	VlanID int `json:"vlanID,omitempty"`
 	// MacAddress contains the MAC address to set on the network interface
 	MacAddress string `json:"macAddress,omitempty"`
+	// Subnet
+	Subnet string `json:"subnet,omitempty"`
 }
 
 type NUMAInfo struct {
@@ -3015,4 +3017,6 @@ type Network struct {
 	Gateway string `json:"gateway,omitempty"`
 	// VLAN ID
 	VlanID int `json:"vlanID,omitempty"`
+	// Subnet
+	Subnet string `json:"subnet,omitempty"`
 }

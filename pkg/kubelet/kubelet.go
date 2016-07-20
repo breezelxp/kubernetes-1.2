@@ -3328,7 +3328,12 @@ func (kl *Kubelet) convertStatusToAPIStatus(pod *api.Pod, podStatus *kubecontain
 
 	containerDone := sets.NewString()
 	apiPodStatus.PodIP = podStatus.IP
-	apiPodStatus.CpuSet = podStatus.CpuSet
+	if len(podStatus.CpuSet) > 0 {
+		apiPodStatus.CpuSet = podStatus.CpuSet
+	} else {
+		apiPodStatus.CpuSet = pod.Status.CpuSet
+	}
+	apiPodStatus.Network = pod.Status.Network
 	for _, containerStatus := range podStatus.ContainerStatuses {
 		cName := containerStatus.Name
 		if _, ok := expectedContainers[cName]; !ok {

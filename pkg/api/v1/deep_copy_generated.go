@@ -1111,6 +1111,7 @@ func deepCopy_v1_Network(in Network, out *Network, c *conversion.Cloner) error {
 	out.Address = in.Address
 	out.Gateway = in.Gateway
 	out.VlanID = in.VlanID
+	out.Subnet = in.Subnet
 	return nil
 }
 
@@ -2474,6 +2475,7 @@ func deepCopy_v1_VM(in VM, out *VM, c *conversion.Cloner) error {
 	out.Gateway = in.Gateway
 	out.VlanID = in.VlanID
 	out.MacAddress = in.MacAddress
+	out.Subnet = in.Subnet
 	return nil
 }
 

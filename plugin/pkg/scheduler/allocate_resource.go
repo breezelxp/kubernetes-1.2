@@ -31,6 +31,7 @@ func NumaCpuSelect(pod *api.Pod, node *api.Node, pods []*api.Pod) ([]string, []s
 	}
 	cpuMap := bitmap.NewNumaBitmapSize(uint(nodeCores), numaNode)
 	for _, existingPod := range pods {
+		glog.V(3).Infof("existingPod:%s [cpuset: %s]", existingPod.Name, existingPod.Status.CpuSet)
 		set := strings.Split(existingPod.Status.CpuSet, ",")
 		for _, c := range set {
 			coreNo, _ := strconv.Atoi(c)
@@ -95,18 +96,19 @@ func AllocatePodNetwork(pod *api.Pod, node *api.Node, pods []*api.Pod) (api.Netw
 		}
 
 		// vm address is specified
-		if len(pod.Status.Network.Address) > 0 && !used {
-			parts := strings.Split(vm.Address, "/")
-			if len(parts) < 2 || !strings.HasPrefix(pod.Status.Network.Address, parts[0]) {
-				continue
+		if !used {
+			if innerIP, ok := pod.Annotations["scheduler.tencent.sa/inner-ip"]; ok {
+				parts := strings.Split(vm.Address, "/")
+				if len(parts) <= 0 || innerIP != parts[0] {
+					continue
+				}
 			}
-		}
-		if used == false {
 			network.Mode = pod.Spec.NetworkMode
 			network.Address = vm.Address
 			network.Gateway = vm.Gateway
 			network.MacAddress = vm.MacAddress
 			network.VlanID = vm.VlanID
+			network.Subnet = vm.Subnet
 			break
 		}
 	}

@@ -1498,6 +1498,7 @@ func autoConvert_api_Network_To_v1_Network(in *api.Network, out *Network, s conv
 	out.Address = in.Address
 	out.Gateway = in.Gateway
 	out.VlanID = in.VlanID
+	out.Subnet = in.Subnet
 	return nil
 }
 
@@ -3169,6 +3170,7 @@ func autoConvert_api_VM_To_v1_VM(in *api.VM, out *VM, s conversion.Scope) error 
 	out.Gateway = in.Gateway
 	out.VlanID = in.VlanID
 	out.MacAddress = in.MacAddress
+	out.Subnet = in.Subnet
 	return nil
 }
 
@@ -4838,6 +4840,7 @@ func autoConvert_v1_Network_To_api_Network(in *Network, out *api.Network, s conv
 	out.Address = in.Address
 	out.Gateway = in.Gateway
 	out.VlanID = in.VlanID
+	out.Subnet = in.Subnet
 	return nil
 }
 
@@ -6431,6 +6434,7 @@ func autoConvert_v1_VM_To_api_VM(in *VM, out *api.VM, s conversion.Scope) error 
 	out.Gateway = in.Gateway
 	out.VlanID = in.VlanID
 	out.MacAddress = in.MacAddress
+	out.Subnet = in.Subnet
 	return nil
 }
 
