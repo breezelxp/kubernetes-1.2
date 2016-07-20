@@ -200,8 +200,8 @@ func startComponents(firstManifestURL, secondManifestURL string) (string, string
 	go replicationcontroller.NewReplicationManager(clientset, controller.NoResyncPeriodFunc, replicationcontroller.BurstReplicas, 4096).
 		Run(3, wait.NeverStop)
 
-	nodeController := nodecontroller.NewNodeController(nil, clientset, 5*time.Minute, util.NewFakeAlwaysRateLimiter(), util.NewFakeAlwaysRateLimiter(),
-		40*time.Second, 60*time.Second, 5*time.Second, nil, false)
+	nodeController := nodecontroller.NewNodeController(nil, clientset, 5*time.Minute, util.NewFakeAlwaysRateLimiter(), util.NewFakeAlwaysRateLimiter(), util.NewFakeAlwaysRateLimiter(),
+		40*time.Second, 60*time.Second, 5*time.Second, nil, nil, 0, false)
 	nodeController.Run(5 * time.Second)
 	cadvisorInterface := new(cadvisortest.Fake)
 

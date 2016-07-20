@@ -88,6 +88,20 @@ func GetPodReadyCondition(status PodStatus) *PodCondition {
 	return nil
 }
 
+// GetNodeCondition extracts the provided condition from the given status and returns that.
+// Returns nil and -1 if the condition is not present, and the the index of the located condition.
+func GetNodeCondition(status *NodeStatus, conditionType NodeConditionType) (int, *NodeCondition) {
+	if status == nil {
+		return -1, nil
+	}
+	for i := range status.Conditions {
+		if status.Conditions[i].Type == conditionType {
+			return i, &status.Conditions[i]
+		}
+	}
+	return -1, nil
+}
+
 // IsNodeReady returns true if a node is ready; false otherwise.
 func IsNodeReady(node *Node) bool {
 	for _, c := range node.Status.Conditions {

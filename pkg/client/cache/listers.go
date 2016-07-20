@@ -198,6 +198,7 @@ func (s *StoreToReplicationControllerLister) GetPodControllers(pod *api.Pod) (co
 		if rc.Namespace != pod.Namespace {
 			continue
 		}
+		glog.V(3).Infof("Test GetPodControllers: %s", rc.Spec.Selector)
 		labelSet := labels.Set(rc.Spec.Selector)
 		selector = labels.Set(rc.Spec.Selector).AsSelector()
 

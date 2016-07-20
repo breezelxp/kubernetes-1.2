@@ -31,7 +31,7 @@ type cadvisorUnsupported struct {
 
 var _ Interface = new(cadvisorUnsupported)
 
-func New(port uint) (Interface, error) {
+func New(backendStorageName string, port uint) (Interface, error) {
 	return &cadvisorUnsupported{}, nil
 }
 
@@ -76,6 +76,6 @@ func (cu *cadvisorUnsupported) RootFsInfo() (cadvisorapiv2.FsInfo, error) {
 func (cu *cadvisorUnsupported) WatchEvents(request *events.Request) (*events.EventChannel, error) {
 	return nil, unsupportedErr
 }
-func (cc *cadvisorUnsupported) NUMAInfo() (*cadvisorapi.NUMAInfo, error) {
+func (cu *cadvisorUnsupported) NUMAInfo() (*cadvisorapi.NUMAInfo, error) {
 	return nil, unsupportedErr
 }

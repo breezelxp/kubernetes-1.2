@@ -17,9 +17,9 @@ limitations under the License.
 package util
 
 import (
-	"sync"
-
 	"github.com/juju/ratelimit"
+	"sync"
+	"time"
 )
 
 type RateLimiter interface {
@@ -68,6 +68,29 @@ func (t *tokenBucketRateLimiter) Accept() {
 
 func (t *tokenBucketRateLimiter) Stop() {
 }
+
+type evictionsLimiter struct {
+	limiter *ratelimit.Bucket
+}
+
+func NewEvictionsLimiter(burst int) RateLimiter {
+	limiter := ratelimit.NewBucketWithQuantum(24 * time.Hour, int64(burst), int64(burst))
+	return &evictionsLimiter{limiter}
+}
+
+func (t *evictionsLimiter) TryAccept() bool {
+	return t.limiter.TakeAvailable(1) == 1
+}
+
+func (t *evictionsLimiter) Saturation() float64 {
+	capacity := t.limiter.Capacity()
+	avail := t.limiter.Available()
+	return float64(capacity-avail) / float64(capacity)
+}
+
+func (t *evictionsLimiter) Accept() {}
+
+func (t *evictionsLimiter) Stop() {}
 
 type fakeAlwaysRateLimiter struct{}
 
