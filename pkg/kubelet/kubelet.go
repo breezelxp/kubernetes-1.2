@@ -1355,6 +1355,8 @@ func generatePodHostNameAndDomain(pod *api.Pod, clusterDomain string) (string, s
 	subdomainCandidate := pod.Annotations[utilpod.PodSubdomainAnnotation]
 	if utilvalidation.IsDNS1123Label(subdomainCandidate) {
 		hostDomain = fmt.Sprintf("%s.%s.svc.%s", subdomainCandidate, pod.Namespace, clusterDomain)
+	} else if clusterDomain != "" {
+		hostDomain = fmt.Sprintf("%s.pod.%s", pod.Namespace, clusterDomain)
 	}
 	return hostname, hostDomain
 }
@@ -2059,7 +2061,10 @@ func (kl *Kubelet) podIsTerminated(pod *api.Pod) bool {
 		// restarted.
 		status = pod.Status
 	}
-	if status.Phase == api.PodFailed || status.Phase == api.PodSucceeded {
+	// Sometimes we need to stop the pod(container) to do something.
+	// this time pod.Spec.RestartPolicy will be set to 'Never'
+	// in this case,we do not think the pod has been terminated
+	if pod.Spec.RestartPolicy != api.RestartPolicyNever && (status.Phase == api.PodFailed || status.Phase == api.PodSucceeded) {
 		return true
 	}
 
@@ -3644,4 +3649,42 @@ func extractBandwidthResources(pod *api.Pod) (ingress, egress *resource.Quantity
 		}
 	}
 	return ingress, egress, nil
+}
+
+// RestartContainer start (or stop)  the specified container
+// Before stopping we need to set pod.Spec.RestartPolicy to 'Never'
+// After the start we need to restore pod.Spec.RestartPolicy
+func (kl *Kubelet) RestartContainer(pod *api.Pod, containerName, options string) error {
+	podStatus, err := kl.containerRuntime.GetPodStatus(pod.UID, pod.Name, pod.Namespace)
+	if err != nil {
+		return err
+	}
+	// ignore the net container
+	var desiredContainerStatus []*kubecontainer.ContainerStatus
+	if len(containerName) > 0 {
+		desiredContainerStatus = append(desiredContainerStatus, podStatus.FindContainerStatusByName(containerName))
+	} else {
+		for _, container := range pod.Spec.Containers {
+			desiredContainerStatus = append(desiredContainerStatus, podStatus.FindContainerStatusByName(container.Name))
+		}
+	}
+	if len(desiredContainerStatus) <= 0 {
+		return fmt.Errorf("Could not find any container to %s", options)
+	}
+	podStatus.ContainerStatuses = desiredContainerStatus
+	switch options {
+	case "stop":
+		return kl.killPod(pod, nil, podStatus)
+	case "start":
+		for _, container := range podStatus.ContainerStatuses {
+			if err = kl.containerRuntime.StartContainerByID(container.ID); err != nil {
+				glog.Errorf("Failed to %s container %s_%s(%s)", options, container.Name, pod.Namespace, container.ID.ID)
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("unsupported container options %s specified", options)
+	}
+
+	return nil
 }
