@@ -1727,6 +1727,10 @@ func (dm *DockerManager) computePodContainerChanges(pod *api.Pod, podStatus *kub
 				message := fmt.Sprintf("Container %+v is dead, but RestartPolicy says that we should restart it.", container)
 				glog.V(3).Info(message)
 				containersToStart[index] = message
+			} else {
+				if pod.Spec.RestartPolicy == api.RestartPolicyNever {
+					containersToKeep[kubecontainer.DockerID(containerStatus.ID.ID)] = index
+				}
 			}
 			continue
 		}
@@ -2173,4 +2177,23 @@ func (dm *DockerManager) GetPodStatus(uid types.UID, name, namespace string) (*k
 
 	podStatus.ContainerStatuses = containerStatuses
 	return podStatus, nil
+}
+
+func (dm *DockerManager) StartContainerByID(containerID kubecontainer.ContainerID) error {
+	container, err := dm.client.InspectContainer(containerID.ID)
+	if err != nil {
+		return err
+	}
+	if container.State.Running {
+		glog.V(3).Infof("Container %s is running, skiped.", container.Name)
+		return nil
+	}
+	//ref, _ := dm.containerRefManager.GetRef(containerID)
+	if err := dm.client.StartContainer(containerID.ID, nil); err != nil {
+	//	dm.recorder.Eventf(ref, api.EventTypeWarning, kubecontainer.FailedToStartContainer,
+	//		"Failed to start container with docker id %v with error: %v", utilstrings.ShortenString(containerID.ID, 12), err)
+		return err
+	}
+	//dm.recorder.Eventf(ref, api.EventTypeNormal, kubecontainer.StartedContainer, "Started container with docker id %v", utilstrings.ShortenString(containerID.ID, 12))
+	return nil
 }

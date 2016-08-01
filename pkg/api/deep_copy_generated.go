@@ -170,6 +170,7 @@ func init() {
 		DeepCopy_api_ServiceSpec,
 		DeepCopy_api_ServiceStatus,
 		DeepCopy_api_TCPSocketAction,
+		DeepCopy_api_TGWReference,
 		DeepCopy_api_VM,
 		DeepCopy_api_Volume,
 		DeepCopy_api_VolumeMount,
@@ -2851,6 +2852,28 @@ func DeepCopy_api_TCPSocketAction(in TCPSocketAction, out *TCPSocketAction, c *c
 	if err := DeepCopy_intstr_IntOrString(in.Port, &out.Port, c); err != nil {
 		return err
 	}
+	return nil
+}
+
+func DeepCopy_api_TGWReference(in TGWReference, out *TGWReference, c *conversion.Cloner) error {
+	out.ApplicationID = in.ApplicationID
+	out.ApplyType = in.ApplyType
+	out.City = in.City
+	out.FwdMode = in.FwdMode
+	out.Protocol = in.Protocol
+	out.ISP = in.ISP
+	out.FlowPeak = in.FlowPeak
+	out.NeedNAT = in.NeedNAT
+	out.Domain = in.Domain
+	out.PortNum = in.PortNum
+	out.RSIP = in.RSIP
+	out.RSWeight = in.RSWeight
+	out.RSType = in.RSType
+	out.RSPort = in.RSPort
+	out.AppointedVIPs = in.AppointedVIPs
+	out.VPort = in.VPort
+	out.SessionKeepTime = in.SessionKeepTime
+	out.Remark = in.Remark
 	return nil
 }
 

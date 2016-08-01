@@ -94,6 +94,8 @@ type Runtime interface {
 	ContainerCommandRunner
 	// ContainerAttach encapsulates the attaching to containers for testability
 	ContainerAttacher
+	// start container by ContainerID
+	StartContainerByID(containerID ContainerID) error
 }
 
 type ContainerAttacher interface {
