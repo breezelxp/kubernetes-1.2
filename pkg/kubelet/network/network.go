@@ -18,3 +18,4 @@ package network
 
 // TODO: Consider making this value configurable.
 const DefaultInterfaceName = "eth0"
+const Eth1InterfaceName = "eth1"

@@ -749,7 +749,7 @@ func NewNetworkFitPredicate(info NodeInfo) algorithm.FitPredicate {
 
 // PodFitsNetwork calculates fit based on requested, rather than used resources
 func (r *NetworkFit) PodFitsNetwork(pod *api.Pod, nodeName string, nodeInfo *schedulercache.NodeInfo) (bool, error) {
-	if pod.Spec.NetworkMode != api.PodNetworkModeMacVlan {
+	if pod.Spec.NetworkMode == api.PodNetworkFlannel {
 		return true, nil
 	}
 	info, err := r.info.GetNodeInfo(nodeName)
@@ -759,7 +759,7 @@ func (r *NetworkFit) PodFitsNetwork(pod *api.Pod, nodeName string, nodeInfo *sch
 
 	vmsRequested := int64(0)
 	for _, existingPod := range nodeInfo.Pods() {
-		if existingPod.Spec.NetworkMode != api.PodNetworkModeMacVlan {
+		if existingPod.Spec.NetworkMode == api.PodNetworkFlannel {
 			continue
 		}
 		vmsRequested++

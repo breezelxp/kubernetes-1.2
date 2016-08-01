@@ -17,6 +17,7 @@ limitations under the License.
 package cni
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"sort"
@@ -25,6 +26,7 @@ import (
 	"github.com/appc/cni/libcni"
 	cnitypes "github.com/appc/cni/pkg/types"
 	"github.com/golang/glog"
+	"k8s.io/kubernetes/pkg/api"
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
 	"k8s.io/kubernetes/pkg/kubelet/dockertools"
 	"k8s.io/kubernetes/pkg/kubelet/network"
@@ -70,7 +72,8 @@ func getDefaultCNINetwork(pluginDir, vendorCNIDirPrefix string) (*cniNetwork, er
 	case err != nil:
 		return nil, err
 	case len(files) == 0:
-		return nil, fmt.Errorf("No networks found in %s", pluginDir)
+		//		return nil, fmt.Errorf("No networks found in %s", pluginDir)
+		return &cniNetwork{}, nil
 	}
 
 	sort.Strings(files)
@@ -89,6 +92,47 @@ func getDefaultCNINetwork(pluginDir, vendorCNIDirPrefix string) (*cniNetwork, er
 		return network, nil
 	}
 	return nil, fmt.Errorf("No valid networks found in %s", pluginDir)
+}
+
+func getSRIOVNetwork(pod *api.Pod) (*cniNetwork, error) {
+	if (pod.Status.Network == api.Network{}) {
+		return nil, fmt.Errorf("pod (%s_%s) network is empty.", pod.Name, pod.Namespace)
+	}
+	netconf := map[string]interface{}{
+		"name":   pod.Name,
+		"type":   "sriov",
+		"master": network.Eth1InterfaceName,
+		"mac":    pod.Status.Network.MacAddress,
+		"vf":     pod.Status.Network.VfID,
+		"vlan":   pod.Status.Network.VlanID,
+		"ipam": map[string]interface{}{
+			"type":    "txipam",
+			"subnet":  pod.Status.Network.Subnet,
+			"gateway": pod.Status.Network.Gateway,
+			"routes": []interface{}{
+				map[string]interface{}{
+					"dst": "0.0.0.0/0",
+				},
+				map[string]interface{}{
+					"dst": "10.0.0.0/8",
+				},
+			},
+		},
+	}
+	b, err := json.Marshal(netconf)
+	if err != nil {
+		return nil, err
+	}
+	conf, err := libcni.ConfFromBytes(b)
+	if err != nil {
+		return nil, err
+	}
+	vendorCNIDir := fmt.Sprintf(VendorCNIDirTemplate, "", conf.Network.Type)
+	cninet := &libcni.CNIConfig{
+		Path: []string{DefaultCNIDir, vendorCNIDir},
+	}
+	network := &cniNetwork{name: conf.Network.Name, NetworkConfig: conf, CNIConfig: cninet}
+	return network, nil
 }
 
 func (plugin *cniNetworkPlugin) Init(host network.Host) error {
@@ -113,7 +157,25 @@ func (plugin *cniNetworkPlugin) SetUpPod(namespace string, name string, id kubec
 		return err
 	}
 
-	_, err = plugin.defaultNetwork.addToNetwork(name, namespace, id.ContainerID(), netns)
+	pod, ok := plugin.host.GetPodByName(namespace, name)
+	if !ok {
+		return fmt.Errorf("Failed to find pod %s_%s", name, namespace)
+	}
+	switch pod.Spec.NetworkMode {
+	case api.PodNetworkModeSriov:
+		if plugin.defaultNetwork, err = getSRIOVNetwork(pod); err != nil {
+			return err
+		}
+	default:
+		return nil
+	}
+	ip, _, err := net.ParseCIDR(pod.Status.Network.Address)
+	if err != nil {
+		return err
+	}
+	glog.V(3).Infof("sriov network config: %s; ip: %s", string(plugin.defaultNetwork.NetworkConfig.Bytes), ip.String())
+
+	_, err = plugin.defaultNetwork.addToNetwork(name, namespace, id.ContainerID(), netns, ip.String())
 	if err != nil {
 		glog.Errorf("Error while adding to cni network: %s", err)
 		return err
@@ -153,8 +215,8 @@ func (plugin *cniNetworkPlugin) Status(namespace string, name string, id kubecon
 	return &network.PodNetworkStatus{IP: ip}, nil
 }
 
-func (network *cniNetwork) addToNetwork(podName string, podNamespace string, podInfraContainerID kubecontainer.ContainerID, podNetnsPath string) (*cnitypes.Result, error) {
-	rt, err := buildCNIRuntimeConf(podName, podNamespace, podInfraContainerID, podNetnsPath)
+func (network *cniNetwork) addToNetwork(podName string, podNamespace string, podInfraContainerID kubecontainer.ContainerID, podNetnsPath, podIP string) (*cnitypes.Result, error) {
+	rt, err := buildCNIRuntimeConf(podName, podNamespace, podInfraContainerID, podNetnsPath, podIP)
 	if err != nil {
 		glog.Errorf("Error adding network: %v", err)
 		return nil, err
@@ -172,7 +234,7 @@ func (network *cniNetwork) addToNetwork(podName string, podNamespace string, pod
 }
 
 func (network *cniNetwork) deleteFromNetwork(podName string, podNamespace string, podInfraContainerID kubecontainer.ContainerID, podNetnsPath string) error {
-	rt, err := buildCNIRuntimeConf(podName, podNamespace, podInfraContainerID, podNetnsPath)
+	rt, err := buildCNIRuntimeConf(podName, podNamespace, podInfraContainerID, podNetnsPath, "")
 	if err != nil {
 		glog.Errorf("Error deleting network: %v", err)
 		return err
@@ -188,18 +250,19 @@ func (network *cniNetwork) deleteFromNetwork(podName string, podNamespace string
 	return nil
 }
 
-func buildCNIRuntimeConf(podName string, podNs string, podInfraContainerID kubecontainer.ContainerID, podNetnsPath string) (*libcni.RuntimeConf, error) {
+func buildCNIRuntimeConf(podName string, podNs string, podInfraContainerID kubecontainer.ContainerID, podNetnsPath, podIP string) (*libcni.RuntimeConf, error) {
 	glog.V(4).Infof("Got netns path %v", podNetnsPath)
 	glog.V(4).Infof("Using netns path %v", podNs)
 
 	rt := &libcni.RuntimeConf{
 		ContainerID: podInfraContainerID.ID,
 		NetNS:       podNetnsPath,
-		IfName:      network.DefaultInterfaceName,
+		IfName:      network.Eth1InterfaceName,
 		Args: [][2]string{
-			{"K8S_POD_NAMESPACE", podNs},
-			{"K8S_POD_NAME", podName},
-			{"K8S_POD_INFRA_CONTAINER_ID", podInfraContainerID.ID},
+			//			{"K8S_POD_NAMESPACE", podNs},
+			//			{"K8S_POD_NAME", podName},
+			//			{"K8S_POD_INFRA_CONTAINER_ID", podInfraContainerID.ID},
+			{"IP", podIP},
 		},
 	}
 
