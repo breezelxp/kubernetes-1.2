@@ -1624,8 +1624,6 @@ func (dm *DockerManager) createPodInfraContainer(pod *api.Pod) (kubecontainer.Do
 
 	if usesHostNetwork(pod) {
 		netNamespace = namespaceModeHost
-	} else if dm.networkPlugin.Name() == "cni" || dm.networkPlugin.Name() == "kubenet" {
-		netNamespace = "none"
 	} else {
 		// Docker only exports ports from the pod infra container.  Let's
 		// collect all of the relevant ports and export them.
@@ -1904,6 +1902,13 @@ func (dm *DockerManager) SyncPod(pod *api.Pod, _ api.PodStatus, podStatus *kubec
 					glog.Warningf("Clear infra container failed for pod %q: %v", format.Pod(pod), delErr)
 				}
 				return
+			}
+			if pod.Spec.NetworkMode == api.PodNetworkModeSriov {
+				if err = dm.bindSRIOVCPU(podInfraContainerID, pod); err != nil {
+					glog.Errorf("Failed to bind SRIO CPU: %v. pod %q", err, format.Pod(pod))
+					result.Fail(err)
+					return
+				}
 			}
 
 			// Setup the host interface unless the pod is on the host's network (FIXME: move to networkPlugin when ready)
@@ -2195,5 +2200,37 @@ func (dm *DockerManager) StartContainerByID(containerID kubecontainer.ContainerI
 		return err
 	}
 	//dm.recorder.Eventf(ref, api.EventTypeNormal, kubecontainer.StartedContainer, "Started container with docker id %v", utilstrings.ShortenString(containerID.ID, 12))
+	return nil
+}
+
+func (dm *DockerManager) bindSRIOVCPU(id kubecontainer.DockerID, pod *api.Pod) error {
+	var out bytes.Buffer
+	if (pod.Status.Network == api.Network{}) {
+		return fmt.Errorf("pod (%s_%s) network is empty.", pod.Name, pod.Namespace)
+	}
+	if pod.Status.CpuSet == "" {
+		return fmt.Errorf("pod (%s_%s) cpuset is empty.", pod.Name, pod.Namespace)
+	}
+	parts := strings.Split(pod.Status.CpuSet, ",")
+	var irqArray []string
+	for _, core := range parts {
+		irqCpu, err := util.HexCpuSet(core)
+		if err != nil {
+			return err
+		}
+		irqArray = append(irqArray, irqCpu)
+	}
+	rpsCpus, err := util.HexCpuSet(pod.Status.CpuSet)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("sriov", string(id), strconv.Itoa(pod.Status.Network.VfID), strings.Join(irqArray, ","), rpsCpus)
+	cmd.Dir = "/usr/local/bin"
+	cmd.Stderr = &out
+	glog.V(3).Infof("setup sriov: %#v", cmd.Args)
+	if err = cmd.Run(); err != nil {
+		glog.Errorf("error: %+v -- %s", err, out.String())
+		return err
+	}
 	return nil
 }

@@ -76,7 +76,7 @@ func NumaCpuSelect(pod *api.Pod, node *api.Node, pods []*api.Pod) ([]string, []s
 
 func AllocatePodNetwork(pod *api.Pod, node *api.Node, pods []*api.Pod) (api.Network, error) {
 	// If it is not macvlan, not to allocate network
-	if pod.Spec.NetworkMode != api.PodNetworkModeMacVlan {
+	if pod.Spec.NetworkMode == api.PodNetworkFlannel {
 		return api.Network{}, nil
 	}
 	var (
@@ -86,7 +86,7 @@ func AllocatePodNetwork(pod *api.Pod, node *api.Node, pods []*api.Pod) (api.Netw
 	for _, vm := range node.VMs {
 		used = false
 		for _, existingPod := range pods {
-			if existingPod.Spec.NetworkMode != api.PodNetworkModeMacVlan {
+			if existingPod.Spec.NetworkMode == api.PodNetworkFlannel {
 				continue
 			}
 			if vm.Address == existingPod.Status.Network.Address {
@@ -97,7 +97,7 @@ func AllocatePodNetwork(pod *api.Pod, node *api.Node, pods []*api.Pod) (api.Netw
 
 		// vm address is specified
 		if !used {
-			if innerIP, ok := pod.Annotations["scheduler.tencent.sa/inner-ip"]; ok {
+			if innerIP, ok := pod.Annotations["scheduler.tencent.cr/inner-ip"]; ok {
 				parts := strings.Split(vm.Address, "/")
 				if len(parts) <= 0 || innerIP != parts[0] {
 					continue
@@ -109,6 +109,7 @@ func AllocatePodNetwork(pod *api.Pod, node *api.Node, pods []*api.Pod) (api.Netw
 			network.MacAddress = vm.MacAddress
 			network.VlanID = vm.VlanID
 			network.Subnet = vm.Subnet
+			network.VfID = vm.VfID
 			break
 		}
 	}

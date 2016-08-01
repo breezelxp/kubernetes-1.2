@@ -2556,8 +2556,7 @@ const (
 
 const (
 	PodNetworkModeMacVlan = "macvlan"
-	PodNetworkModeHost    = "host"
-	PodNetworkModeNone    = "none"
+	PodNetworkModeSriov   = "sriov"
 	PodNetworkFlannel     = "flannel"
 )
 
@@ -2569,7 +2568,9 @@ type VM struct {
 	Address string `json:"address,omitempty"`
 	// Gateway sets the gateway address that is used as the default for the interface
 	Gateway string `json:"gateway,omitempty"`
-	//VLAN ID
+	// SRIOV VF ID
+	VfID int `json:"vfID"`
+	// VLAN ID
 	VlanID int `json:"vlanID,omitempty"`
 	// MacAddress contains the MAC address to set on the network interface
 	MacAddress string `json:"macAddress,omitempty"`
@@ -2596,6 +2597,8 @@ type Network struct {
 	Address string `json:"address,omitempty"`
 	// Gateway sets the gateway address that is used as the default for the interface
 	Gateway string `json:"gateway,omitempty"`
+	// SRIOV VF ID
+	VfID int `json:"vfID"`
 	// VLAN ID
 	VlanID int `json:"vlanID,omitempty"`
     // Subnet
