@@ -22,6 +22,8 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/appc/cni/libcni"
 	cnitypes "github.com/appc/cni/pkg/types"
@@ -30,6 +32,8 @@ import (
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
 	"k8s.io/kubernetes/pkg/kubelet/dockertools"
 	"k8s.io/kubernetes/pkg/kubelet/network"
+	"k8s.io/kubernetes/pkg/util/sets"
+	"k8s.io/kubernetes/pkg/util/wait"
 )
 
 const (
@@ -42,6 +46,8 @@ const (
 type cniNetworkPlugin struct {
 	defaultNetwork *cniNetwork
 	host           network.Host
+	sync.RWMutex
+	killing sets.String
 }
 
 type cniNetwork struct {
@@ -56,7 +62,10 @@ func probeNetworkPluginsWithVendorCNIDirPrefix(pluginDir, vendorCNIDirPrefix str
 	if err != nil {
 		return configList
 	}
-	return append(configList, &cniNetworkPlugin{defaultNetwork: network})
+	return append(configList, &cniNetworkPlugin{
+		defaultNetwork: network,
+		killing:        sets.NewString(),
+	})
 }
 
 func ProbeNetworkPlugins(pluginDir string) []network.NetworkPlugin {
@@ -72,8 +81,7 @@ func getDefaultCNINetwork(pluginDir, vendorCNIDirPrefix string) (*cniNetwork, er
 	case err != nil:
 		return nil, err
 	case len(files) == 0:
-		//		return nil, fmt.Errorf("No networks found in %s", pluginDir)
-		return &cniNetwork{}, nil
+		return nil, nil
 	}
 
 	sort.Strings(files)
@@ -94,13 +102,13 @@ func getDefaultCNINetwork(pluginDir, vendorCNIDirPrefix string) (*cniNetwork, er
 	return nil, fmt.Errorf("No valid networks found in %s", pluginDir)
 }
 
-func getSRIOVNetwork(pod *api.Pod) (*cniNetwork, error) {
-	if (pod.Status.Network == api.Network{}) {
-		return nil, fmt.Errorf("pod (%s_%s) network is empty.", pod.Name, pod.Namespace)
+func getPodCNINetwork(pod *api.Pod) (*cniNetwork, error) {
+	if (pod == nil || pod.Status.Network == api.Network{}) {
+		return nil, fmt.Errorf("Can't get pod network: %s_%s", pod.Name, pod.Namespace)
 	}
 	netconf := map[string]interface{}{
 		"name":   pod.Name,
-		"type":   "sriov",
+		"type":   pod.Spec.NetworkMode,
 		"master": network.Eth1InterfaceName,
 		"mac":    pod.Status.Network.MacAddress,
 		"vf":     pod.Status.Network.VfID,
@@ -135,12 +143,58 @@ func getSRIOVNetwork(pod *api.Pod) (*cniNetwork, error) {
 	return network, nil
 }
 
+func (plugin *cniNetworkPlugin) getDefaultNetwork() *cniNetwork {
+	plugin.RLock()
+	defer plugin.RUnlock()
+	return plugin.defaultNetwork
+}
+
+func (plugin *cniNetworkPlugin) setDefaultNetwork(n *cniNetwork) {
+	plugin.Lock()
+	defer plugin.Unlock()
+	plugin.defaultNetwork = n
+}
+
+func (plugin *cniNetworkPlugin) checkInitialized() error {
+	if plugin.getDefaultNetwork() == nil {
+		return fmt.Errorf("cni config unintialized")
+	}
+	return nil
+}
+
+func (plugin *cniNetworkPlugin) syncKillingCleanups() {
+	runtime, ok := plugin.host.GetRuntime().(*dockertools.DockerManager)
+	if !ok {
+		return
+	}
+	for _, id := range plugin.killing.List() {
+		if !runtime.CheckContainerExists(id) {
+			plugin.killing.Delete(id)
+		}
+	}
+}
+
 func (plugin *cniNetworkPlugin) Init(host network.Host) error {
 	plugin.host = host
+	// clean the killing sets
+	go wait.Forever(func() {
+		plugin.syncKillingCleanups()
+	}, 10*time.Minute)
 	return nil
 }
 
 func (plugin *cniNetworkPlugin) Event(name string, details map[string]interface{}) {
+	pod, ok := details[name].(*api.Pod)
+	if !ok {
+		glog.Warningf("%s event didn't contain pod network", name)
+		return
+	}
+	if cniNetwork, err := getPodCNINetwork(pod); err != nil {
+		glog.Errorf("Failed to get cninetwork config: %v", err)
+		return
+	} else {
+		plugin.setDefaultNetwork(cniNetwork)
+	}
 }
 
 func (plugin *cniNetworkPlugin) Name() string {
@@ -148,6 +202,9 @@ func (plugin *cniNetworkPlugin) Name() string {
 }
 
 func (plugin *cniNetworkPlugin) SetUpPod(namespace string, name string, id kubecontainer.DockerID) error {
+	if err := plugin.checkInitialized(); err != nil {
+		return err
+	}
 	runtime, ok := plugin.host.GetRuntime().(*dockertools.DockerManager)
 	if !ok {
 		return fmt.Errorf("CNI execution called on non-docker runtime")
@@ -161,21 +218,12 @@ func (plugin *cniNetworkPlugin) SetUpPod(namespace string, name string, id kubec
 	if !ok {
 		return fmt.Errorf("Failed to find pod %s_%s", name, namespace)
 	}
-	switch pod.Spec.NetworkMode {
-	case api.PodNetworkModeSriov:
-		if plugin.defaultNetwork, err = getSRIOVNetwork(pod); err != nil {
-			return err
-		}
-	default:
-		return nil
-	}
 	ip, _, err := net.ParseCIDR(pod.Status.Network.Address)
 	if err != nil {
 		return err
 	}
-	glog.V(3).Infof("sriov network config: %s; ip: %s", string(plugin.defaultNetwork.NetworkConfig.Bytes), ip.String())
 
-	_, err = plugin.defaultNetwork.addToNetwork(name, namespace, id.ContainerID(), netns, ip.String())
+	_, err = plugin.getDefaultNetwork().addToNetwork(name, namespace, id.ContainerID(), netns, ip.String())
 	if err != nil {
 		glog.Errorf("Error while adding to cni network: %s", err)
 		return err
@@ -185,6 +233,14 @@ func (plugin *cniNetworkPlugin) SetUpPod(namespace string, name string, id kubec
 }
 
 func (plugin *cniNetworkPlugin) TearDownPod(namespace string, name string, id kubecontainer.DockerID) error {
+	if plugin.killing.Has(id.ContainerID().ID) {
+		glog.V(4).Infof("The pod (%s_%s) is already in killing", name, namespace)
+		return nil
+	}
+	plugin.killing.Insert(id.ContainerID().ID)
+	if err := plugin.checkInitialized(); err != nil {
+		return err
+	}
 	runtime, ok := plugin.host.GetRuntime().(*dockertools.DockerManager)
 	if !ok {
 		return fmt.Errorf("CNI execution called on non-docker runtime")
@@ -193,8 +249,7 @@ func (plugin *cniNetworkPlugin) TearDownPod(namespace string, name string, id ku
 	if err != nil {
 		return err
 	}
-
-	return plugin.defaultNetwork.deleteFromNetwork(name, namespace, id.ContainerID(), netns)
+	return plugin.getDefaultNetwork().deleteFromNetwork(name, namespace, id.ContainerID(), netns)
 }
 
 // TODO: Use the addToNetwork function to obtain the IP of the Pod. That will assume idempotent ADD call to the plugin.
@@ -223,7 +278,7 @@ func (network *cniNetwork) addToNetwork(podName string, podNamespace string, pod
 	}
 
 	netconf, cninet := network.NetworkConfig, network.CNIConfig
-	glog.V(4).Infof("About to run with conf.Network.Type=%v, c.Path=%v", netconf.Network.Type, cninet.Path)
+	glog.V(4).Infof("About to run with conf.Network.Type=%v, c.Path=%v, conf.Bytes=%s, rt=%v", netconf.Network.Type, cninet.Path, string(netconf.Bytes), rt)
 	res, err := cninet.AddNetwork(netconf, rt)
 	if err != nil {
 		glog.Errorf("Error adding network: %v", err)
@@ -241,7 +296,7 @@ func (network *cniNetwork) deleteFromNetwork(podName string, podNamespace string
 	}
 
 	netconf, cninet := network.NetworkConfig, network.CNIConfig
-	glog.V(4).Infof("About to run with conf.Network.Type=%v, c.Path=%v", netconf.Network.Type, cninet.Path)
+	glog.V(4).Infof("About to run with conf.Network.Type=%v, c.Path=%v, conf.Bytes=%s, rt=%v", netconf.Network.Type, cninet.Path, string(netconf.Bytes), rt)
 	err = cninet.DelNetwork(netconf, rt)
 	if err != nil {
 		glog.Errorf("Error deleting network: %v", err)
