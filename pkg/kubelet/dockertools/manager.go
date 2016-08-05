@@ -1380,7 +1380,7 @@ func (dm *DockerManager) killPodWithSyncResult(pod *api.Pod, runningPod kubecont
 		if getDockerNetworkMode(ins) != namespaceModeHost {
 			teardownNetworkResult := kubecontainer.NewSyncResult(kubecontainer.TeardownNetwork, kubecontainer.BuildPodFullName(runningPod.Name, runningPod.Namespace))
 			result.AddSyncResult(teardownNetworkResult)
-                        glog.V(4).Infof("****** test for teardownod ****")
+			dm.networkPlugin.Event(runningPod.Name, map[string]interface{}{runningPod.Name: pod})
 			if err := dm.networkPlugin.TearDownPod(runningPod.Namespace, runningPod.Name, kubecontainer.DockerID(networkContainer.ID.ID)); err != nil {
 				message := fmt.Sprintf("Failed to teardown network for pod %q using network plugins %q: %v", runningPod.ID, dm.networkPlugin.Name(), err)
 				teardownNetworkResult.Fail(kubecontainer.ErrTeardownNetwork, message)
@@ -1962,6 +1962,7 @@ func (dm *DockerManager) SyncPod(pod *api.Pod, _ api.PodStatus, podStatus *kubec
 		result.AddSyncResult(setupNetworkResult)
 		if !usesHostNetwork(pod) {
 			// Call the networking plugin
+			dm.networkPlugin.Event(pod.Name, map[string]interface{}{pod.Name: pod})
 			err = dm.networkPlugin.SetUpPod(pod.Namespace, pod.Name, podInfraContainerID)
 			if err != nil {
 				// TODO: (random-liu) There shouldn't be "Skipping pod" in sync result message
@@ -1999,7 +2000,7 @@ func (dm *DockerManager) SyncPod(pod *api.Pod, _ api.PodStatus, podStatus *kubec
                     }
                 }
                 */
-                dm.runtimeHelper.GenerateRunContainerEnv(pod, "1.1.1.1", "10001", 10)
+                dm.runtimeHelper.UpdateRunContainerEnv(pod, "1.1.1.1", "10001", 10)
             }
 			if pod.Spec.NetworkMode == api.PodNetworkModeSriov {
 				if err = dm.bindSRIOVCPU(podInfraContainerID, pod); err != nil {
@@ -2529,6 +2530,18 @@ func (dm *DockerManager) StartContainerByID(containerID kubecontainer.ContainerI
 	}
 	//dm.recorder.Eventf(ref, api.EventTypeNormal, kubecontainer.StartedContainer, "Started container with docker id %v", utilstrings.ShortenString(containerID.ID, 12))
 	return nil
+}
+
+func (dm *DockerManager) CheckContainerExists(id string) bool {
+	_, err := dm.client.InspectContainer(id)
+	if err != nil {
+		if _, ok := err.(*docker.NoSuchContainer); ok {
+			return false
+		} else {
+			glog.Warningf("Unable to inspect container %s: %v", id, err)
+		}
+	}
+	return true
 }
 
 func (dm *DockerManager) bindSRIOVCPU(id kubecontainer.DockerID, pod *api.Pod) error {
