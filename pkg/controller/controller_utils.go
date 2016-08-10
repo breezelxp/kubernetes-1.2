@@ -587,6 +587,8 @@ func FilterActivePods(pods []api.Pod) []*api.Pod {
 		p := pods[i]
 		if IsPodActive(p) {
 			result = append(result, &p)
+		} else if IsPodNeverSync(p) {
+			result = append(result, &p)
 		} else {
 			glog.V(4).Infof("Ignoring inactive pod %v/%v in state %v, deletion time %v",
 				p.Namespace, p.Name, p.Status.Phase, p.DeletionTimestamp)
@@ -599,6 +601,10 @@ func IsPodActive(p api.Pod) bool {
 	return api.PodSucceeded != p.Status.Phase &&
 		api.PodFailed != p.Status.Phase &&
 		p.DeletionTimestamp == nil
+}
+
+func IsPodNeverSync(p api.Pod) bool {
+	return p.Spec.RestartPolicy == api.RestartPolicyNever
 }
 
 // FilterActiveReplicaSets returns replica sets that have (or at least ought to have) pods.

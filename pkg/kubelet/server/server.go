@@ -18,6 +18,7 @@ package server
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -167,6 +168,7 @@ type HostInterface interface {
 	RootFsInfo() (cadvisorapiv2.FsInfo, error)
 	ListVolumesForPod(podUID types.UID) (map[string]volume.Volume, bool)
 	PLEGHealthCheck() (bool, error)
+	RestartContainer(pod *api.Pod, containerName, options string) error
 }
 
 // NewServer initializes and configures a kubelet.Server object to handle HTTP requests.
@@ -247,6 +249,18 @@ func (s *Server) InstallDefaultHandlers() {
 		To(s.getSpec).
 		Operation("getSpec").
 		Writes(cadvisorapi.MachineInfo{}))
+	s.restfulCont.Add(ws)
+
+	ws = new(restful.WebService)
+	ws.
+		Path("/container").
+		Produces(restful.MIME_JSON)
+	ws.Route(ws.GET("/{podNamespace}/{podID}/{options}").
+		To(s.operateContainer).
+		Operation("operateContainer"))
+	ws.Route(ws.GET("/{podNamespace}/{podID}/{containerName}/{options}").
+		To(s.operateContainer).
+		Operation("operateContainer"))
 	s.restfulCont.Add(ws)
 }
 
@@ -1093,4 +1107,33 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		),
 	).Log()
 	s.restfulCont.ServeHTTP(w, req)
+}
+
+func (s *Server) operateContainer(request *restful.Request, response *restful.Response) {
+	podNamespace, podID, _, container := getContainerCoordinates(request)
+	pod, ok := s.host.GetPodByName(podNamespace, podID)
+	if !ok {
+		response.WriteError(http.StatusNotFound, fmt.Errorf("pod does not exist"))
+		return
+	}
+	options := request.PathParameter("options")
+
+	var operateResult = struct {
+		Op       string `json:"op"`
+		Code     int    `json:"code"`
+		ErrorMsg string `json:"errorMsg"`
+	}{
+		Op:       options,
+		Code:     200,
+		ErrorMsg: "success",
+	}
+	if err := s.host.RestartContainer(pod, container, options); err != nil {
+		operateResult.Code = 1
+		operateResult.ErrorMsg = fmt.Sprintf("Error restart container %s_%s(%s): %v", pod.Name, pod.Namespace, container, err)
+	}
+	data, err := json.Marshal(operateResult)
+	if err != nil {
+		return
+	}
+	response.Write(data)
 }

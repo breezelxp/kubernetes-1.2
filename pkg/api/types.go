@@ -2601,3 +2601,24 @@ type Network struct {
     // Subnet
 	Subnet string `json:"subnet,omitempty"`
 }
+
+type TGWReference struct {
+	ApplicationID   string `json:"applicationnameID,omitempty"`
+	ApplyType       int    `json:"applyType"`
+	City            string `json:"city,omitempty"`
+	FwdMode         int    `json:"fwdMode"`
+	Protocol        string `json:"protocol,omitempty"`
+	ISP             string `json:"isp,omitempty"`
+	FlowPeak        string `json:"flowPeak,omitempty"`
+	NeedNAT         int    `json:"needNAT"`
+	Domain          string `json:"domain,omitempty"`
+	PortNum         int    `json:"portNum,omitempty"`
+	RSIP            string `json:"rsIP,omitempty"`
+	RSWeight        int    `json:"rsWeight,omitempty"`
+	RSType          string `json:"rsType,omitempty"`
+	RSPort          int    `json:"rsPort,omitempty"`
+	AppointedVIPs   string `json:"appointedVIPs,omitempty"`
+	VPort           int    `json:"vPort,omitempty"`
+	SessionKeepTime int    `json:"sessionKeepTime,omitempty"`
+	Remark          string `json:"remark,omitempty"`
+}

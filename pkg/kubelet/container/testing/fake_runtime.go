@@ -353,3 +353,11 @@ func (f *FakeRuntime) GarbageCollect(gcPolicy ContainerGCPolicy) error {
 	f.CalledFunctions = append(f.CalledFunctions, "GarbageCollect")
 	return f.Err
 }
+
+func (f *FakeRuntime) StartContainerByID(containerID ContainerID) error {
+	f.Lock()
+	defer f.Unlock()
+
+	f.CalledFunctions = append(f.CalledFunctions, "StartContainerByID")
+	return f.Err
+}
