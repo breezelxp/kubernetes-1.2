@@ -104,7 +104,7 @@ func getDefaultCNINetwork(pluginDir, vendorCNIDirPrefix string) (*cniNetwork, er
 
 func getPodCNINetwork(pod *api.Pod) (*cniNetwork, error) {
 	if (pod == nil || pod.Status.Network == api.Network{}) {
-		return nil, fmt.Errorf("Can't get pod network: %s_%s", pod.Name, pod.Namespace)
+		return nil, fmt.Errorf("Can't get pod network: %v", pod)
 	}
 	netconf := map[string]interface{}{
 		"name":   pod.Name,

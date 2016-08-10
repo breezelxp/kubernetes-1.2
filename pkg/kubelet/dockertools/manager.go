@@ -931,6 +931,13 @@ func getDockerNetworkMode(container *docker.Container) string {
 	return ""
 }
 
+func isCNINetworkPod(pod *api.Pod) bool {
+	if pod != nil && pod.Spec.NetworkMode != "" {
+		return pod.Spec.NetworkMode != api.PodNetworkFlannel
+	}
+	return false
+}
+
 // dockerVersion implementes kubecontainer.Version interface by implementing
 // Compare() and String() (which is implemented by the underlying semver.Version)
 // TODO: this code is the same as rktVersion and may make sense to be moved to
@@ -1377,7 +1384,7 @@ func (dm *DockerManager) killPodWithSyncResult(pod *api.Pod, runningPod kubecont
 			result.Fail(err)
 			return
 		}
-		if getDockerNetworkMode(ins) != namespaceModeHost {
+		if getDockerNetworkMode(ins) != namespaceModeHost && isCNINetworkPod(pod) {
 			teardownNetworkResult := kubecontainer.NewSyncResult(kubecontainer.TeardownNetwork, kubecontainer.BuildPodFullName(runningPod.Name, runningPod.Namespace))
 			result.AddSyncResult(teardownNetworkResult)
 			dm.networkPlugin.Event(runningPod.Name, map[string]interface{}{runningPod.Name: pod})
@@ -1962,87 +1969,49 @@ func (dm *DockerManager) SyncPod(pod *api.Pod, _ api.PodStatus, podStatus *kubec
 		result.AddSyncResult(setupNetworkResult)
 		if !usesHostNetwork(pod) {
 			// Call the networking plugin
-			dm.networkPlugin.Event(pod.Name, map[string]interface{}{pod.Name: pod})
-			err = dm.networkPlugin.SetUpPod(pod.Namespace, pod.Name, podInfraContainerID)
-			if err != nil {
-				// TODO: (random-liu) There shouldn't be "Skipping pod" in sync result message
-				message := fmt.Sprintf("Failed to setup network for pod %q using network plugins %q: %v; Skipping pod", format.Pod(pod), dm.networkPlugin.Name(), err)
-				setupNetworkResult.Fail(kubecontainer.ErrSetupNetwork, message)
-				glog.Error(message)
+			if isCNINetworkPod(pod) {
+				dm.networkPlugin.Event(pod.Name, map[string]interface{}{pod.Name: pod})
+				err = dm.networkPlugin.SetUpPod(pod.Namespace, pod.Name, podInfraContainerID)
+				if err != nil {
+					// TODO: (random-liu) There shouldn't be "Skipping pod" in sync result message
+					message := fmt.Sprintf("Failed to setup network for pod %q using network plugins %q: %v; Skipping pod", format.Pod(pod), dm.networkPlugin.Name(), err)
+					setupNetworkResult.Fail(kubecontainer.ErrSetupNetwork, message)
+					glog.Error(message)
 
-				// Delete infra container
-				killContainerResult := kubecontainer.NewSyncResult(kubecontainer.KillContainer, PodInfraContainerName)
-				result.AddSyncResult(killContainerResult)
-				if delErr := dm.KillContainerInPod(kubecontainer.ContainerID{
-					ID:   string(podInfraContainerID),
-					Type: "docker"}, nil, pod, message); delErr != nil {
-					killContainerResult.Fail(kubecontainer.ErrKillContainer, delErr.Error())
-					glog.Warningf("Clear infra container failed for pod %q: %v", format.Pod(pod), delErr)
+					// Delete infra container
+					killContainerResult := kubecontainer.NewSyncResult(kubecontainer.KillContainer, PodInfraContainerName)
+					result.AddSyncResult(killContainerResult)
+					if delErr := dm.KillContainerInPod(kubecontainer.ContainerID{
+						ID:   string(podInfraContainerID),
+						Type: "docker"}, nil, pod, message); delErr != nil {
+						killContainerResult.Fail(kubecontainer.ErrKillContainer, delErr.Error())
+						glog.Warningf("Clear infra container failed for pod %q: %v", format.Pod(pod), delErr)
+					}
+					return
 				}
-				return
-			}
-            glog.V(4).Infof("***** test 0000 NetworkMode:%+v",pod.Spec.NetworkMode)
-            if pod.Spec.NetworkMode == "sriov" {
-                /*
-                value, ok := pod.Annotations["tencent.cr/setup-tgw"]
-                glog.V(4).Infof("***** test 00001 Annotations: %+v *****", pod.Annotations["tencent.cr/setup-tgw"])
-                glog.V(4).Infof("***** test 00000 value:%+v*******", value)
-                glog.V(4).Infof("***** test0000 ok:%+v*******",ok)
+				if pod.Spec.NetworkMode == api.PodNetworkModeSriov {
+					if err = dm.bindSRIOVCPU(podInfraContainerID, pod); err != nil {
+						glog.Errorf("Failed to bind SRIO CPU: %v. pod %q", err, format.Pod(pod))
+						result.Fail(err)
+						return
+					}
+				}
+
+				value, ok := pod.Annotations["tencent.cr/setup-tgw"]
                 if (ok && (value != "")){
                     var r api.TGWReference
                     err := json.Unmarshal([]byte(value), &r)
-                    glog.V(4).Infof("***** test 00002 r:%+v*******", r)
-                    glog.V(4).Infof("***** test0000 err :%+v*******",err)
+                    var ret bool
+                    var  vip , vport string 
                     if (err == nil) {
-                        glog.V(4).Infof("***** test00004 ******")
-                        glog.V(4).Infof("***** test00003 applicationnameID:%+v*****",r.ApplicationID)
-                        TgwApply(pod.Status.Network.Address,r)
-                    }
-                }
-                */
-                dm.runtimeHelper.UpdateRunContainerEnv(pod, "1.1.1.1", "10001", 10)
-            }
-			if pod.Spec.NetworkMode == api.PodNetworkModeSriov {
-				if err = dm.bindSRIOVCPU(podInfraContainerID, pod); err != nil {
-					glog.Errorf("Failed to bind SRIO CPU: %v. pod %q", err, format.Pod(pod))
-					result.Fail(err)
-					return
-				}
-                value, ok := pod.Annotations["tencent.cr/setup-tgw"]
-                glog.V(4).Infof("***** test 00001 Annotations: %+v *****", pod.Annotations["tencent.cr/setup-tgw"])
-                glog.V(4).Infof("***** test 00000 value:%+v*******", value)
-                glog.V(4).Infof("***** test0000 ok:%+v*******",ok)
-                if (ok && (value != "")){
-		            var r api.TGWReference 
-		            err := json.Unmarshal([]byte(value), &r)
-                    glog.V(4).Infof("***** test 00002 r:%+v*******", r)
-                    glog.V(4).Infof("***** test0000 err :%+v*******",err)
-		            if (err == nil) {
-                        glog.V(4).Infof("***** test00004 ******")
-                        glog.V(4).Infof("***** test00003 applicationnameID:%+v*****",r.ApplicationID)
-   			            TgwApply(pod.Status.Network.Address,r) 
+                        ret,vip,vport = TgwApply(pod.Status.Network.Address,r)
+                        if (ret){
+                            dm.runtimeHelper.UpdateRunContainerEnv(pod, vip, vport, 0)
+                        }
                     }
                 }
 			}
-/*
-            if pod.Spec.NetworkMode == "sriov" {
-                value, ok := pod.Annotations["tencent.cr/setup-tgw"]
-                glog.V(4).Infof("***** test 00001 Annotations: %+v *****", pod.Annotations["tencent.cr/setup-tgw"])
-                glog.V(4).Infof("***** test 00000 value:%+v*******", value)
-                glog.V(4).Infof("***** test0000 ok:%+v*******",ok)
-                if (ok && (value != "")){
-                    var r api.TGWReference    
-                    err := json.Unmarshal([]byte(value), &r)
-                    glog.V(4).Infof("***** test 00002 r:%+v*******", r)
-                    glog.V(4).Infof("***** test0000 err :%+v*******",err)
-                    if (err == nil) {
-                        glog.V(4).Infof("***** test00004 ******")
-                        glog.V(4).Infof("***** test00003 applicationnameID:%+v*****",r.ApplicationID)
-                        TgwApply(pod.Status.Network.Address,r)      
-                    }
-                }
-            }
-*/
+
 			// Setup the host interface unless the pod is on the host's network (FIXME: move to networkPlugin when ready)
 			var podInfraContainer *docker.Container
 			podInfraContainer, err = dm.client.InspectContainer(string(podInfraContainerID))
@@ -2316,7 +2285,7 @@ func (dm *DockerManager) GetPodStatus(uid types.UID, name, namespace string) (*k
 	return podStatus, nil
 }
 
-func TgwApply(Rsip string, tgw_info api.TGWReference ) bool{
+func TgwApply(Rsip string, tgw_info api.TGWReference ) (bool,string,string){
 
 
     reg := regexp.MustCompile(`(.+)/(.+)`)
@@ -2355,22 +2324,22 @@ func TgwApply(Rsip string, tgw_info api.TGWReference ) bool{
         },
     }
 
-    glog.V(4).Infof("***** test00006 TgwApply params:%+v*****",params)
+    //glog.V(4).Infof("*****  TgwApply params:%+v*****",params)
     var respData RespData
     body, _, err := readBody(call("POST", "/api_service/v1/tgw_operation/", map[string]Params{"params": params}))
     if err != nil {
-        glog.V(4).Infof("***** test00007 err:%+v ******", err) 
-        return false
+        glog.V(4).Infof("***** TgwApply err:%+v ******", err) 
+        return false,"",""
     }
     json.Unmarshal(body, &respData)
     if respData.Errcode > 1 {
-        glog.V(4).Infof("***** test00008 code:%+v msg:%+v******", respData.Errcode, respData.Errmsg)
-        return false
+        glog.V(4).Infof("***** TgwApply code:%+v msg:%+v******", respData.Errcode, respData.Errmsg)
+        return false,"",""
     }
     jobid := respData.Data.JobID
-    //vip := respData.Data.Vip
-    //vport := respData.Data.Vport
-    glog.V(4).Infof("***** test00008 jobid:%+v ******", jobid)
+    vip := respData.Data.Vip
+    vport := respData.Data.Vport
+    glog.V(4).Infof("***** TgwApply jobid:%+v ******", jobid)
     // check job result
     glog.V(4).Infof("***** test00009 Check result... ******")
     retries := 360
@@ -2378,8 +2347,8 @@ func TgwApply(Rsip string, tgw_info api.TGWReference ) bool{
         body, _, err := readBody(call("GET", fmt.Sprintf("/api_service/v1/job/%s", jobid), nil))
         if err != nil && i == retries {
             glog.V(4).Infof("***** test00010 request err:%+v ******",err)
-            fmt.Println(err)
-            return false
+            //fmt.Println(err)
+            return false,"",""
         } else if err != nil {
             glog.V(4).Infof("***** test00011 Retry %+v ******",i)
             time.Sleep(10 * time.Second)
@@ -2388,7 +2357,7 @@ func TgwApply(Rsip string, tgw_info api.TGWReference ) bool{
         json.Unmarshal(body, &respData)
         if respData.Errcode > 1 {
             glog.V(4).Infof("***** test00012 Error %+v ******", respData.Errmsg)
-            return false
+            return false,"",""
         } else if respData.Errcode == 1 {
             glog.V(4).Infof("***** test00013 Retry:%+v ******",i)
             time.Sleep(10 * time.Second)
@@ -2397,10 +2366,8 @@ func TgwApply(Rsip string, tgw_info api.TGWReference ) bool{
             break
         }
     }
-    //TODO: set env
-    glog.V(4).Infof("***** test00014 Complete ******")    
-    fmt.Println("Complete")
-    return true
+    glog.V(4).Infof("***** TgwApply Complete VIP:%s VPORT:%s ******",vip,vport)    
+    return true,vip,vport
 }
 
 
