@@ -856,6 +856,13 @@ func getDockerNetworkMode(container *docker.Container) string {
 	return ""
 }
 
+func isCNINetworkPod(pod *api.Pod) bool {
+	if pod.Spec.NetworkMode != "" {
+		return pod.Spec.NetworkMode != api.PodNetworkFlannel
+	}
+	return false
+}
+
 // dockerVersion implementes kubecontainer.Version interface by implementing
 // Compare() and String() (which is implemented by the underlying semver.Version)
 // TODO: this code is the same as rktVersion and may make sense to be moved to
@@ -1302,9 +1309,10 @@ func (dm *DockerManager) killPodWithSyncResult(pod *api.Pod, runningPod kubecont
 			result.Fail(err)
 			return
 		}
-		if getDockerNetworkMode(ins) != namespaceModeHost {
+		if getDockerNetworkMode(ins) != namespaceModeHost && isCNINetworkPod(pod) {
 			teardownNetworkResult := kubecontainer.NewSyncResult(kubecontainer.TeardownNetwork, kubecontainer.BuildPodFullName(runningPod.Name, runningPod.Namespace))
 			result.AddSyncResult(teardownNetworkResult)
+			dm.networkPlugin.Event(runningPod.Name, map[string]interface{}{runningPod.Name: pod})
 			if err := dm.networkPlugin.TearDownPod(runningPod.Namespace, runningPod.Name, kubecontainer.DockerID(networkContainer.ID.ID)); err != nil {
 				message := fmt.Sprintf("Failed to teardown network for pod %q using network plugins %q: %v", runningPod.ID, dm.networkPlugin.Name(), err)
 				teardownNetworkResult.Fail(kubecontainer.ErrTeardownNetwork, message)
@@ -1624,8 +1632,6 @@ func (dm *DockerManager) createPodInfraContainer(pod *api.Pod) (kubecontainer.Do
 
 	if usesHostNetwork(pod) {
 		netNamespace = namespaceModeHost
-	} else if dm.networkPlugin.Name() == "cni" || dm.networkPlugin.Name() == "kubenet" {
-		netNamespace = "none"
 	} else {
 		// Docker only exports ports from the pod infra container.  Let's
 		// collect all of the relevant ports and export them.
@@ -1887,23 +1893,33 @@ func (dm *DockerManager) SyncPod(pod *api.Pod, _ api.PodStatus, podStatus *kubec
 		result.AddSyncResult(setupNetworkResult)
 		if !usesHostNetwork(pod) {
 			// Call the networking plugin
-			err = dm.networkPlugin.SetUpPod(pod.Namespace, pod.Name, podInfraContainerID)
-			if err != nil {
-				// TODO: (random-liu) There shouldn't be "Skipping pod" in sync result message
-				message := fmt.Sprintf("Failed to setup network for pod %q using network plugins %q: %v; Skipping pod", format.Pod(pod), dm.networkPlugin.Name(), err)
-				setupNetworkResult.Fail(kubecontainer.ErrSetupNetwork, message)
-				glog.Error(message)
+			if isCNINetworkPod(pod) {
+				dm.networkPlugin.Event(pod.Name, map[string]interface{}{pod.Name: pod})
+				err = dm.networkPlugin.SetUpPod(pod.Namespace, pod.Name, podInfraContainerID)
+				if err != nil {
+					// TODO: (random-liu) There shouldn't be "Skipping pod" in sync result message
+					message := fmt.Sprintf("Failed to setup network for pod %q using network plugins %q: %v; Skipping pod", format.Pod(pod), dm.networkPlugin.Name(), err)
+					setupNetworkResult.Fail(kubecontainer.ErrSetupNetwork, message)
+					glog.Error(message)
 
-				// Delete infra container
-				killContainerResult := kubecontainer.NewSyncResult(kubecontainer.KillContainer, PodInfraContainerName)
-				result.AddSyncResult(killContainerResult)
-				if delErr := dm.KillContainerInPod(kubecontainer.ContainerID{
-					ID:   string(podInfraContainerID),
-					Type: "docker"}, nil, pod, message); delErr != nil {
-					killContainerResult.Fail(kubecontainer.ErrKillContainer, delErr.Error())
-					glog.Warningf("Clear infra container failed for pod %q: %v", format.Pod(pod), delErr)
+					// Delete infra container
+					killContainerResult := kubecontainer.NewSyncResult(kubecontainer.KillContainer, PodInfraContainerName)
+					result.AddSyncResult(killContainerResult)
+					if delErr := dm.KillContainerInPod(kubecontainer.ContainerID{
+						ID:   string(podInfraContainerID),
+						Type: "docker"}, nil, pod, message); delErr != nil {
+						killContainerResult.Fail(kubecontainer.ErrKillContainer, delErr.Error())
+						glog.Warningf("Clear infra container failed for pod %q: %v", format.Pod(pod), delErr)
+					}
+					return
 				}
-				return
+				if pod.Spec.NetworkMode == api.PodNetworkModeSriov {
+					if err = dm.bindSRIOVCPU(podInfraContainerID, pod); err != nil {
+						glog.Errorf("Failed to bind SRIO CPU: %v. pod %q", err, format.Pod(pod))
+						result.Fail(err)
+						return
+					}
+				}
 			}
 
 			// Setup the host interface unless the pod is on the host's network (FIXME: move to networkPlugin when ready)
@@ -2195,5 +2211,49 @@ func (dm *DockerManager) StartContainerByID(containerID kubecontainer.ContainerI
 		return err
 	}
 	//dm.recorder.Eventf(ref, api.EventTypeNormal, kubecontainer.StartedContainer, "Started container with docker id %v", utilstrings.ShortenString(containerID.ID, 12))
+	return nil
+}
+
+func (dm *DockerManager) CheckContainerExists(id string) bool {
+	_, err := dm.client.InspectContainer(id)
+	if err != nil {
+		if _, ok := err.(*docker.NoSuchContainer); ok {
+			return false
+		} else {
+			glog.Warningf("Unable to inspect container %s: %v", id, err)
+		}
+	}
+	return true
+}
+
+func (dm *DockerManager) bindSRIOVCPU(id kubecontainer.DockerID, pod *api.Pod) error {
+	var out bytes.Buffer
+	if (pod.Status.Network == api.Network{}) {
+		return fmt.Errorf("pod (%s_%s) network is empty.", pod.Name, pod.Namespace)
+	}
+	if pod.Status.CpuSet == "" {
+		return fmt.Errorf("pod (%s_%s) cpuset is empty.", pod.Name, pod.Namespace)
+	}
+	parts := strings.Split(pod.Status.CpuSet, ",")
+	var irqArray []string
+	for _, core := range parts {
+		irqCpu, err := util.HexCpuSet(core)
+		if err != nil {
+			return err
+		}
+		irqArray = append(irqArray, irqCpu)
+	}
+	rpsCpus, err := util.HexCpuSet(pod.Status.CpuSet)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("sriov", string(id), strconv.Itoa(pod.Status.Network.VfID), strings.Join(irqArray, ","), rpsCpus)
+	cmd.Dir = "/usr/local/bin"
+	cmd.Stderr = &out
+	glog.V(3).Infof("setup sriov: %#v", cmd.Args)
+	if err = cmd.Run(); err != nil {
+		glog.Errorf("error: %+v -- %s", err, out.String())
+		return err
+	}
 	return nil
 }
