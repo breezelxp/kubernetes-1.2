@@ -17,12 +17,24 @@ type dataHead struct {
 	resv    [2]uint32
 }
 
+type AsyncProducer interface {
+	Input(msg *ProducerMessage)
+	Close()
+}
+
+type ProducerMessage struct {
+	DataID uint32
+	Value  []byte
+}
+
 // Client gse data pipe client
-type Client struct {
+type client struct {
 
 	// The domain socket address
-	Endpoint string
-	Conn     net.Conn
+	endpoint string
+	conn     net.Conn
+	input    chan *ProducerMessage
+	sigstop  chan bool
 }
 
 func (dhead *dataHead) packageData(data []byte) ([]byte, error) {
@@ -41,24 +53,24 @@ func (dhead *dataHead) packageData(data []byte) ([]byte, error) {
 }
 
 // Connect connect to gse data pipe
-func (gsec *Client) Connect() error {
+func (gsec *client) connect() error {
 
-	conn, err := net.Dial("unix", gsec.Endpoint)
+	conn, err := net.Dial("unix", gsec.endpoint)
 
 	if err != nil {
 		return fmt.Errorf("no gse data pipe  available, maybe gseagent is not running")
 	}
 
-	glog.V(3).Infof("current endpoint of gsedatapipe: %s", gsec.Endpoint)
-	gsec.Conn = conn
+	glog.V(3).Infof("current endpoint of gsedatapipe: %s", gsec.endpoint)
+	gsec.conn = conn
 	return nil
 }
 
 // Send write data to data pipe
-func (gsec *Client) Send(dataid uint32, data []byte) error {
+func (gsec *client) send(dataid uint32, data []byte) error {
 
-	if gsec.Conn == nil {
-		if error := gsec.Connect(); error != nil {
+	if gsec.conn == nil {
+		if error := gsec.connect(); error != nil {
 			return error
 		}
 	}
@@ -70,7 +82,7 @@ func (gsec *Client) Send(dataid uint32, data []byte) error {
 		return err
 	}
 
-	err = gsec.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	err = gsec.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 
 	if err != nil {
 		glog.Errorf(" SET WRITE DEAD LINE FAILED: %v", err)
@@ -78,9 +90,10 @@ func (gsec *Client) Send(dataid uint32, data []byte) error {
 
 	//glog.V(0).Info(string(packageData[24:]), dhead.bodylen)
 	//var n int
-	if _, err = gsec.Conn.Write(packageData); err != nil {
+	if _, err = gsec.conn.Write(packageData); err != nil {
 		glog.Errorf("SEND DATA TO DATA PIPE FAILED: %v", err)
-		gsec.Close()
+		gsec.conn.Close()
+		gsec.conn = nil
 		return err
 	}
 
@@ -90,14 +103,66 @@ func (gsec *Client) Send(dataid uint32, data []byte) error {
 }
 
 // Close close gse data pipe
-func (gsec *Client) Close() error {
-	gsec.Conn.Close()
-	gsec.Conn = nil
+func (gsec *client) close() error {
+
+	gsec.sigstop <- true
+
 	return nil
 }
 
-// New create a new client of gse data pipe
-func New(endpoint string) (*Client, error) {
+func (gsec *client) Close() {
 
-	return &Client{Endpoint: endpoint}, nil
+	gsec.close()
+}
+
+func (gsec *client) Input(msg *ProducerMessage) {
+
+	select {
+	case gsec.input <- msg:
+	default:
+		glog.Errorf("pipe is full ")
+	}
+	return
+}
+
+// New create a new client of gse data pipe
+func New(endpoint string) (AsyncProducer, error) {
+
+	cli := &client{
+		endpoint: endpoint,
+		input:    make(chan *ProducerMessage),
+		sigstop:  make(chan bool)}
+
+	if err := cli.connect(); nil != err {
+
+		glog.V(0).Infof("can not connect remote pipe : %s, error info: %v", cli.endpoint, err)
+	}
+
+	go func() {
+
+		for {
+
+			select {
+
+			case msg := <-cli.input:
+
+				if err := cli.send(msg.DataID, msg.Value); nil != err {
+
+					glog.Errorf("can not send data to remote pipe : %s, error info: %v", cli.endpoint, err)
+
+				}
+
+			case <-cli.sigstop:
+
+				glog.Errorf("will disconnect with the remote pipe : %s,", cli.endpoint)
+				close(cli.input)
+				close(cli.sigstop)
+				glog.Errorf("disconnected with the remote pipe : %s,", cli.endpoint)
+				return
+			}
+		}
+
+	}()
+
+	return cli, nil
 }

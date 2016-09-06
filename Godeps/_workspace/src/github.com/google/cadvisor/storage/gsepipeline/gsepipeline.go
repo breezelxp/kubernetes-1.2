@@ -6,8 +6,8 @@ import (
 	info "github.com/google/cadvisor/info/v1"
 	"github.com/google/cadvisor/storage"
 	gseclient "github.com/google/cadvisor/storage/gsepipeline/client"
-	kubeletclient "github.com/google/cadvisor/storage/gsepipeline/kubelet"
-	kube_client "k8s.io/kubernetes/pkg/kubelet/client"
+	//kubeletclient "github.com/google/cadvisor/storage/gsepipeline/kubelet"
+	//kube_client "k8s.io/kubernetes/pkg/kubelet/client"
 	"net"
 	"os"
 	"strings"
@@ -23,11 +23,9 @@ type detailSpec struct {
 }
 
 type gseStorage struct {
-	client      *gseclient.Client
+	client      gseclient.AsyncProducer
 	dataid      uint64
-	host        kubeletclient.Host
 	machineName string
-	kubeletcli  *kubeletclient.KubeletClient
 }
 
 func init() {
@@ -36,7 +34,7 @@ func init() {
 
 func new() (storage.StorageDriver, error) {
 
-	return newGseStorage(*storage.ArgDbHost, *storage.ArgKubeletIp, *storage.ArgKubeletPort, *storage.ArgDataId)
+	return newGseStorage(*storage.ArgDbHost, *storage.ArgDataId)
 }
 
 func getHostETH1Address() (string, error) {
@@ -53,19 +51,21 @@ func getHostETH1Address() (string, error) {
 	return addr[0].(*net.IPNet).IP.String(), nil
 }
 
-func newGseStorage(endpoint string, kubeletip string, kubeletport int, dataid uint64) (*gseStorage, error) {
+func newGseStorage(endpoint string, dataid uint64) (*gseStorage, error) {
 
-	glog.V(0).Info("endpoint:", endpoint, "kubelet ip:", kubeletip, "kubelet port:", kubeletport, "dataid:", dataid)
+	glog.V(0).Info("endpoint:", endpoint, "dataid:", dataid)
 
 	client, err := gseclient.New(endpoint)
 	if nil != err {
 		return nil, err
 	}
 
-	client.Connect()
+	/*
+		client.Connect()
 
-	config := &kube_client.KubeletClientConfig{EnableHttps: false}
-	kubeletd, err := kubeletclient.NewKubeletClient(config)
+		config := &kube_client.KubeletClientConfig{EnableHttps: false}
+		kubeletd, err := kubeletclient.NewKubeletClient(config)
+	*/
 
 	address, err := getHostETH1Address()
 	if err != nil {
@@ -75,10 +75,8 @@ func newGseStorage(endpoint string, kubeletip string, kubeletport int, dataid ui
 	if nil == err {
 		gseStorageClient := &gseStorage{
 			client:      client,
-			kubeletcli:  kubeletd,
 			dataid:      dataid,
-			machineName: address,
-			host:        kubeletclient.Host{IP: kubeletip, Port: kubeletport}}
+			machineName: address}
 
 		return gseStorageClient, nil
 	}
@@ -129,11 +127,8 @@ func (gse *gseStorage) AddStats(ref info.ContainerReference, stats *info.Contain
 		return err
 	}
 
-	err = gse.client.Send(uint32(gse.dataid), b)
-	if err != nil {
-		glog.Errorf("%v", err)
-		return err
-	}
+	gse.client.Input(&gseclient.ProducerMessage{DataID: uint32(gse.dataid), Value: b})
+
 	return nil
 }
 
