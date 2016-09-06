@@ -130,7 +130,7 @@ func New(endpoint string) (AsyncProducer, error) {
 
 	cli := &client{
 		endpoint: endpoint,
-		input:    make(chan *ProducerMessage),
+		input:    make(chan *ProducerMessage, 4096),
 		sigstop:  make(chan bool)}
 
 	if err := cli.connect(); nil != err {
@@ -139,6 +139,12 @@ func New(endpoint string) (AsyncProducer, error) {
 	}
 
 	go func() {
+
+		defer func() {
+
+			cli.conn.Close()
+			cli.conn = nil
+		}()
 
 		for {
 
@@ -154,9 +160,10 @@ func New(endpoint string) (AsyncProducer, error) {
 
 			case <-cli.sigstop:
 
-				glog.Errorf("will disconnect with the remote pipe : %s,", cli.endpoint)
-				close(cli.input)
-				close(cli.sigstop)
+				//glog.Errorf("will disconnect with the remote pipe : %s,", cli.endpoint)
+				//close(cli.input)
+				//close(cli.sigstop)
+
 				glog.Errorf("disconnected with the remote pipe : %s,", cli.endpoint)
 				return
 			}
