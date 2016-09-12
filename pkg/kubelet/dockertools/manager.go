@@ -857,7 +857,7 @@ func getDockerNetworkMode(container *docker.Container) string {
 }
 
 func isCNINetworkPod(pod *api.Pod) bool {
-	if pod.Spec.NetworkMode != "" {
+	if pod != nil && pod.Spec.NetworkMode != "" {
 		return pod.Spec.NetworkMode != api.PodNetworkFlannel
 	}
 	return false

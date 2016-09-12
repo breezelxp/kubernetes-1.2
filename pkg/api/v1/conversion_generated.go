@@ -3202,6 +3202,7 @@ func autoConvert_api_VolumeMount_To_v1_VolumeMount(in *api.VolumeMount, out *Vol
 	out.Name = in.Name
 	out.ReadOnly = in.ReadOnly
 	out.MountPath = in.MountPath
+	out.SubPath = in.SubPath
 	return nil
 }
 
@@ -6468,6 +6469,7 @@ func autoConvert_v1_VolumeMount_To_api_VolumeMount(in *VolumeMount, out *api.Vol
 	out.Name = in.Name
 	out.ReadOnly = in.ReadOnly
 	out.MountPath = in.MountPath
+	out.SubPath = in.SubPath
 	return nil
 }
 
