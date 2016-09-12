@@ -107,7 +107,7 @@ func getPodCNINetwork(pod *api.Pod) (*cniNetwork, error) {
 		return nil, fmt.Errorf("Can't get pod network: %v", pod)
 	}
 	netconf := map[string]interface{}{
-		"name":   pod.Name,
+		"name":   pod.Namespace + "-" + pod.Name,
 		"type":   pod.Spec.NetworkMode,
 		"master": network.Eth1InterfaceName,
 		"mac":    pod.Status.Network.MacAddress,
@@ -167,8 +167,11 @@ func (plugin *cniNetworkPlugin) syncKillingCleanups() {
 	if !ok {
 		return
 	}
+	plugin.RLock()
+	defer plugin.RUnlock()
 	for _, id := range plugin.killing.List() {
 		if !runtime.CheckContainerExists(id) {
+			fmt.Printf("Delete killing: %v", id)
 			plugin.killing.Delete(id)
 		}
 	}
@@ -179,7 +182,7 @@ func (plugin *cniNetworkPlugin) Init(host network.Host) error {
 	// clean the killing sets
 	go wait.Forever(func() {
 		plugin.syncKillingCleanups()
-	}, 10*time.Minute)
+	}, 8*time.Hour)
 	return nil
 }
 
@@ -202,9 +205,6 @@ func (plugin *cniNetworkPlugin) Name() string {
 }
 
 func (plugin *cniNetworkPlugin) SetUpPod(namespace string, name string, id kubecontainer.DockerID) error {
-	if err := plugin.checkInitialized(); err != nil {
-		return err
-	}
 	runtime, ok := plugin.host.GetRuntime().(*dockertools.DockerManager)
 	if !ok {
 		return fmt.Errorf("CNI execution called on non-docker runtime")
@@ -223,7 +223,11 @@ func (plugin *cniNetworkPlugin) SetUpPod(namespace string, name string, id kubec
 		return err
 	}
 
-	_, err = plugin.getDefaultNetwork().addToNetwork(name, namespace, id.ContainerID(), netns, ip.String())
+	cniNetwork, err := getPodCNINetwork(pod)
+	if err != nil {
+		return fmt.Errorf("Failed to get pod's (%s_%s) cninetwork config: %v", name, namespace, err)
+	}
+	_, err = cniNetwork.addToNetwork(name, namespace, id.ContainerID(), netns, ip.String())
 	if err != nil {
 		glog.Errorf("Error while adding to cni network: %s", err)
 		return err
@@ -232,15 +236,14 @@ func (plugin *cniNetworkPlugin) SetUpPod(namespace string, name string, id kubec
 	return err
 }
 
-func (plugin *cniNetworkPlugin) TearDownPod(namespace string, name string, id kubecontainer.DockerID) error {
+func (plugin *cniNetworkPlugin) TearDownPod(namespace string, name string, id kubecontainer.DockerID, details interface{}) error {
 	if plugin.killing.Has(id.ContainerID().ID) {
 		glog.V(4).Infof("The pod (%s_%s) is already in killing", name, namespace)
 		return nil
 	}
+	plugin.Lock()
 	plugin.killing.Insert(id.ContainerID().ID)
-	if err := plugin.checkInitialized(); err != nil {
-		return err
-	}
+	plugin.Unlock()
 	runtime, ok := plugin.host.GetRuntime().(*dockertools.DockerManager)
 	if !ok {
 		return fmt.Errorf("CNI execution called on non-docker runtime")
@@ -249,7 +252,12 @@ func (plugin *cniNetworkPlugin) TearDownPod(namespace string, name string, id ku
 	if err != nil {
 		return err
 	}
-	return plugin.getDefaultNetwork().deleteFromNetwork(name, namespace, id.ContainerID(), netns)
+	pod := details.(*api.Pod)
+	cniNetwork, err := getPodCNINetwork(pod)
+	if err != nil {
+		return fmt.Errorf("Failed to get pod's (%s_%s) cninetwork config: %v", name, namespace, err)
+	}
+	return cniNetwork.deleteFromNetwork(name, namespace, id.ContainerID(), netns)
 }
 
 // TODO: Use the addToNetwork function to obtain the IP of the Pod. That will assume idempotent ADD call to the plugin.

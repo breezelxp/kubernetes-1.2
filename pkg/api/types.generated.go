@@ -50508,19 +50508,19 @@ func (x *TGWReference) CodecEncodeSelf(e *codec1978.Encoder) {
 			var yyq2 [18]bool
 			_, _, _ = yysep2, yyq2, yy2arr2
 			const yyr2 bool = false
-			yyq2[0] = x.ApplicationID != ""
+			yyq2[0] = x.ApplicationID != 0
 			yyq2[2] = x.City != ""
 			yyq2[4] = x.Protocol != ""
 			yyq2[5] = x.ISP != ""
-			yyq2[6] = x.FlowPeak != ""
+			yyq2[6] = x.FlowPeak != 0
 			yyq2[8] = x.Domain != ""
 			yyq2[9] = x.PortNum != 0
 			yyq2[10] = x.RSIP != ""
 			yyq2[11] = x.RSWeight != 0
 			yyq2[12] = x.RSType != ""
-			yyq2[13] = x.RSPort != 0
+			yyq2[13] = x.RSPort != ""
 			yyq2[14] = x.AppointedVIPs != ""
-			yyq2[15] = x.VPort != 0
+			yyq2[15] = x.VPort != ""
 			yyq2[16] = x.SessionKeepTime != 0
 			yyq2[17] = x.Remark != ""
 			var yynn2 int
@@ -50543,10 +50543,10 @@ func (x *TGWReference) CodecEncodeSelf(e *codec1978.Encoder) {
 					_ = yym4
 					if false {
 					} else {
-						r.EncodeString(codecSelferC_UTF81234, string(x.ApplicationID))
+						r.EncodeInt(int64(x.ApplicationID))
 					}
 				} else {
-					r.EncodeString(codecSelferC_UTF81234, "")
+					r.EncodeInt(0)
 				}
 			} else {
 				if yyq2[0] {
@@ -50557,7 +50557,7 @@ func (x *TGWReference) CodecEncodeSelf(e *codec1978.Encoder) {
 					_ = yym5
 					if false {
 					} else {
-						r.EncodeString(codecSelferC_UTF81234, string(x.ApplicationID))
+						r.EncodeInt(int64(x.ApplicationID))
 					}
 				}
 			}
@@ -50681,10 +50681,10 @@ func (x *TGWReference) CodecEncodeSelf(e *codec1978.Encoder) {
 					_ = yym22
 					if false {
 					} else {
-						r.EncodeString(codecSelferC_UTF81234, string(x.FlowPeak))
+						r.EncodeInt(int64(x.FlowPeak))
 					}
 				} else {
-					r.EncodeString(codecSelferC_UTF81234, "")
+					r.EncodeInt(0)
 				}
 			} else {
 				if yyq2[6] {
@@ -50695,7 +50695,7 @@ func (x *TGWReference) CodecEncodeSelf(e *codec1978.Encoder) {
 					_ = yym23
 					if false {
 					} else {
-						r.EncodeString(codecSelferC_UTF81234, string(x.FlowPeak))
+						r.EncodeInt(int64(x.FlowPeak))
 					}
 				}
 			}
@@ -50850,10 +50850,10 @@ func (x *TGWReference) CodecEncodeSelf(e *codec1978.Encoder) {
 					_ = yym43
 					if false {
 					} else {
-						r.EncodeInt(int64(x.RSPort))
+						r.EncodeString(codecSelferC_UTF81234, string(x.RSPort))
 					}
 				} else {
-					r.EncodeInt(0)
+					r.EncodeString(codecSelferC_UTF81234, "")
 				}
 			} else {
 				if yyq2[13] {
@@ -50864,7 +50864,7 @@ func (x *TGWReference) CodecEncodeSelf(e *codec1978.Encoder) {
 					_ = yym44
 					if false {
 					} else {
-						r.EncodeInt(int64(x.RSPort))
+						r.EncodeString(codecSelferC_UTF81234, string(x.RSPort))
 					}
 				}
 			}
@@ -50900,10 +50900,10 @@ func (x *TGWReference) CodecEncodeSelf(e *codec1978.Encoder) {
 					_ = yym49
 					if false {
 					} else {
-						r.EncodeInt(int64(x.VPort))
+						r.EncodeString(codecSelferC_UTF81234, string(x.VPort))
 					}
 				} else {
-					r.EncodeInt(0)
+					r.EncodeString(codecSelferC_UTF81234, "")
 				}
 			} else {
 				if yyq2[15] {
@@ -50914,7 +50914,7 @@ func (x *TGWReference) CodecEncodeSelf(e *codec1978.Encoder) {
 					_ = yym50
 					if false {
 					} else {
-						r.EncodeInt(int64(x.VPort))
+						r.EncodeString(codecSelferC_UTF81234, string(x.VPort))
 					}
 				}
 			}
@@ -51031,9 +51031,9 @@ func (x *TGWReference) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) {
 		switch yys3 {
 		case "applicationnameID":
 			if r.TryDecodeAsNil() {
-				x.ApplicationID = ""
+				x.ApplicationID = 0
 			} else {
-				x.ApplicationID = string(r.DecodeString())
+				x.ApplicationID = int(r.DecodeInt(codecSelferBitsize1234))
 			}
 		case "applyType":
 			if r.TryDecodeAsNil() {
@@ -51067,9 +51067,9 @@ func (x *TGWReference) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) {
 			}
 		case "flowPeak":
 			if r.TryDecodeAsNil() {
-				x.FlowPeak = ""
+				x.FlowPeak = 0
 			} else {
-				x.FlowPeak = string(r.DecodeString())
+				x.FlowPeak = int(r.DecodeInt(codecSelferBitsize1234))
 			}
 		case "needNAT":
 			if r.TryDecodeAsNil() {
@@ -51109,9 +51109,9 @@ func (x *TGWReference) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) {
 			}
 		case "rsPort":
 			if r.TryDecodeAsNil() {
-				x.RSPort = 0
+				x.RSPort = ""
 			} else {
-				x.RSPort = int(r.DecodeInt(codecSelferBitsize1234))
+				x.RSPort = string(r.DecodeString())
 			}
 		case "appointedVIPs":
 			if r.TryDecodeAsNil() {
@@ -51121,9 +51121,9 @@ func (x *TGWReference) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) {
 			}
 		case "vPort":
 			if r.TryDecodeAsNil() {
-				x.VPort = 0
+				x.VPort = ""
 			} else {
-				x.VPort = int(r.DecodeInt(codecSelferBitsize1234))
+				x.VPort = string(r.DecodeString())
 			}
 		case "sessionKeepTime":
 			if r.TryDecodeAsNil() {
@@ -51163,9 +51163,9 @@ func (x *TGWReference) codecDecodeSelfFromArray(l int, d *codec1978.Decoder) {
 	}
 	z.DecSendContainerState(codecSelfer_containerArrayElem1234)
 	if r.TryDecodeAsNil() {
-		x.ApplicationID = ""
+		x.ApplicationID = 0
 	} else {
-		x.ApplicationID = string(r.DecodeString())
+		x.ApplicationID = int(r.DecodeInt(codecSelferBitsize1234))
 	}
 	yyj22++
 	if yyhl22 {
@@ -51259,9 +51259,9 @@ func (x *TGWReference) codecDecodeSelfFromArray(l int, d *codec1978.Decoder) {
 	}
 	z.DecSendContainerState(codecSelfer_containerArrayElem1234)
 	if r.TryDecodeAsNil() {
-		x.FlowPeak = ""
+		x.FlowPeak = 0
 	} else {
-		x.FlowPeak = string(r.DecodeString())
+		x.FlowPeak = int(r.DecodeInt(codecSelferBitsize1234))
 	}
 	yyj22++
 	if yyhl22 {
@@ -51371,9 +51371,9 @@ func (x *TGWReference) codecDecodeSelfFromArray(l int, d *codec1978.Decoder) {
 	}
 	z.DecSendContainerState(codecSelfer_containerArrayElem1234)
 	if r.TryDecodeAsNil() {
-		x.RSPort = 0
+		x.RSPort = ""
 	} else {
-		x.RSPort = int(r.DecodeInt(codecSelferBitsize1234))
+		x.RSPort = string(r.DecodeString())
 	}
 	yyj22++
 	if yyhl22 {
@@ -51403,9 +51403,9 @@ func (x *TGWReference) codecDecodeSelfFromArray(l int, d *codec1978.Decoder) {
 	}
 	z.DecSendContainerState(codecSelfer_containerArrayElem1234)
 	if r.TryDecodeAsNil() {
-		x.VPort = 0
+		x.VPort = ""
 	} else {
-		x.VPort = int(r.DecodeInt(codecSelferBitsize1234))
+		x.VPort = string(r.DecodeString())
 	}
 	yyj22++
 	if yyhl22 {
