@@ -11,10 +11,11 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 type detailSpec struct {
-	Timestamp      int64                   `json:"timestamp"`
+	Timestamp      time.Time               `json:"timestamp"`
 	MachineName    string                  `json:"machine_name,omitempty"`
 	ContainerID    string                  `json:"container_id,omitempty"`
 	ContainerName  string                  `json:"container_name,omitempty"`
@@ -87,8 +88,6 @@ func newGseStorage(endpoint string, dataid uint64) (*gseStorage, error) {
 
 func (gse *gseStorage) AddStats(ref info.ContainerReference, stats *info.ContainerStats) error {
 
-	timestamp := stats.Timestamp.UnixNano()
-
 	var containerName string
 	if len(ref.Aliases) > 0 {
 		containerName = ref.Aliases[0]
@@ -100,7 +99,7 @@ func (gse *gseStorage) AddStats(ref info.ContainerReference, stats *info.Contain
 		MachineName:    gse.machineName,
 		ContainerID:    ref.Id,
 		ContainerName:  containerName,
-		Timestamp:      timestamp,
+		Timestamp:      stats.Timestamp,
 		ContainerStats: stats}
 
 	detail.ContainerInfo.Id = ref.Id
