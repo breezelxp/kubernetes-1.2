@@ -861,6 +861,7 @@ func deepCopy_v1_VolumeMount(in v1.VolumeMount, out *v1.VolumeMount, c *conversi
 	out.Name = in.Name
 	out.ReadOnly = in.ReadOnly
 	out.MountPath = in.MountPath
+	out.SubPath = in.SubPath
 	return nil
 }
 
