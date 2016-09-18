@@ -284,9 +284,9 @@ func (g *genericScheduler) AllocateResources(
 	}
 
 	sort.Sort(sort.Reverse(priorityList))
-	mapNode := make(map[string]*api.Node, len(nodeList.Items))
+	mapNode := make(map[string]api.Node, len(nodeList.Items))
 	for _, node := range nodeList.Items {
-		mapNode[node.Name] = &node
+		mapNode[node.Name] = node
 	}
 	var (
 		nodeName     string

@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func NumaCpuSelect(pod *api.Pod, node *api.Node, pods []*api.Pod) ([]string, []string, error) {
+func NumaCpuSelect(pod *api.Pod, node api.Node, pods []*api.Pod) ([]string, []string, error) {
 	var (
 		numaCpuSet   []string
 		normalCpuSet []string
@@ -74,7 +74,7 @@ func NumaCpuSelect(pod *api.Pod, node *api.Node, pods []*api.Pod) ([]string, []s
 	return normalCpuSet, numaCpuSet, nil
 }
 
-func AllocatePodNetwork(pod *api.Pod, node *api.Node, pods []*api.Pod) (api.Network, error) {
+func AllocatePodNetwork(pod *api.Pod, node api.Node, pods []*api.Pod) (api.Network, error) {
 	// If it is not macvlan, not to allocate network
 	if pod.Spec.NetworkMode == api.PodNetworkFlannel {
 		return api.Network{}, nil

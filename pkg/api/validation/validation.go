@@ -1594,6 +1594,7 @@ func ValidatePodUpdate(newPod, oldPod *api.Pod) field.ErrorList {
 	var newContainers []api.Container
 	for ix, container := range mungedPod.Spec.Containers {
 		container.Image = oldPod.Spec.Containers[ix].Image
+        container.Env = oldPod.Spec.Containers[ix].Env
 		newContainers = append(newContainers, container)
 	}
 	mungedPod.Spec.Containers = newContainers
@@ -1606,6 +1607,9 @@ func ValidatePodUpdate(newPod, oldPod *api.Pod) field.ErrorList {
 	if api.PullPolicy(oldPod.Spec.RestartPolicy) != "" {
 		mungedPod.Spec.RestartPolicy = oldPod.Spec.RestartPolicy
 	}
+
+    //glog.V(3).Infof( "**** mungedPod.Spec: %+v",mungedPod.Spec)
+    //glog.V(3).Infof( "**** oldPod.Spec: %+v",oldPod.Spec)
 	if !api.Semantic.DeepEqual(mungedPod.Spec, oldPod.Spec) {
 		//TODO: Pinpoint the specific field that causes the invalid error after we have strategic merge diff
 		allErrs = append(allErrs, field.Forbidden(specPath, "pod updates may not change fields other than `containers[*].image` or `spec.activeDeadlineSeconds`"))
