@@ -744,6 +744,9 @@ type VolumeMount struct {
 	ReadOnly bool `json:"readOnly,omitempty"`
 	// Required. Must not contain ':'.
 	MountPath string `json:"mountPath"`
+	// Path within the volume from which the container's volume should be mounted.
+	// Defaults to "" (volume's root).
+	SubPath string `json:"subPath,omitempty"`
 }
 
 // EnvVar represents an environment variable present in a Container.
@@ -2556,8 +2559,7 @@ const (
 
 const (
 	PodNetworkModeMacVlan = "macvlan"
-	PodNetworkModeHost    = "host"
-	PodNetworkModeNone    = "none"
+	PodNetworkModeSriov   = "sriov"
 	PodNetworkFlannel     = "flannel"
 )
 
@@ -2569,7 +2571,9 @@ type VM struct {
 	Address string `json:"address,omitempty"`
 	// Gateway sets the gateway address that is used as the default for the interface
 	Gateway string `json:"gateway,omitempty"`
-	//VLAN ID
+	// SRIOV VF ID
+	VfID int `json:"vfID"`
+	// VLAN ID
 	VlanID int `json:"vlanID,omitempty"`
 	// MacAddress contains the MAC address to set on the network interface
 	MacAddress string `json:"macAddress,omitempty"`
@@ -2596,8 +2600,31 @@ type Network struct {
 	Address string `json:"address,omitempty"`
 	// Gateway sets the gateway address that is used as the default for the interface
 	Gateway string `json:"gateway,omitempty"`
+	// SRIOV VF ID
+	VfID int `json:"vfID"`
 	// VLAN ID
 	VlanID int `json:"vlanID,omitempty"`
     // Subnet
 	Subnet string `json:"subnet,omitempty"`
+}
+
+type TGWReference struct {
+	ApplicationID   int    `json:"applicationnameID,omitempty"`
+	ApplyType       int    `json:"applyType"`
+	City            string `json:"city,omitempty"`
+	FwdMode         int    `json:"fwdMode"`
+	Protocol        string `json:"protocol,omitempty"`
+	ISP             string `json:"isp,omitempty"`
+	FlowPeak        int    `json:"flowPeak,omitempty"`
+	NeedNAT         int    `json:"needNAT"`
+	Domain          string `json:"domain,omitempty"`
+	PortNum         int    `json:"portNum,omitempty"`
+	RSIP            string `json:"rsIP,omitempty"`
+	RSWeight        int    `json:"rsWeight,omitempty"`
+	RSType          string `json:"rsType,omitempty"`
+	RSPort          string `json:"rsPort,omitempty"`
+	AppointedVIPs   string `json:"appointedVIPs,omitempty"`
+	VPort           string `json:"vPort,omitempty"`
+	SessionKeepTime int    `json:"sessionKeepTime,omitempty"`
+	Remark          string `json:"remark,omitempty"`
 }

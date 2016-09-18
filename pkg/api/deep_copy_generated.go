@@ -170,6 +170,7 @@ func init() {
 		DeepCopy_api_ServiceSpec,
 		DeepCopy_api_ServiceStatus,
 		DeepCopy_api_TCPSocketAction,
+		DeepCopy_api_TGWReference,
 		DeepCopy_api_VM,
 		DeepCopy_api_Volume,
 		DeepCopy_api_VolumeMount,
@@ -1329,6 +1330,7 @@ func DeepCopy_api_Network(in Network, out *Network, c *conversion.Cloner) error 
 	out.MacAddress = in.MacAddress
 	out.Address = in.Address
 	out.Gateway = in.Gateway
+	out.VfID = in.VfID
 	out.VlanID = in.VlanID
 	out.Subnet = in.Subnet
 	return nil
@@ -2854,10 +2856,33 @@ func DeepCopy_api_TCPSocketAction(in TCPSocketAction, out *TCPSocketAction, c *c
 	return nil
 }
 
+func DeepCopy_api_TGWReference(in TGWReference, out *TGWReference, c *conversion.Cloner) error {
+	out.ApplicationID = in.ApplicationID
+	out.ApplyType = in.ApplyType
+	out.City = in.City
+	out.FwdMode = in.FwdMode
+	out.Protocol = in.Protocol
+	out.ISP = in.ISP
+	out.FlowPeak = in.FlowPeak
+	out.NeedNAT = in.NeedNAT
+	out.Domain = in.Domain
+	out.PortNum = in.PortNum
+	out.RSIP = in.RSIP
+	out.RSWeight = in.RSWeight
+	out.RSType = in.RSType
+	out.RSPort = in.RSPort
+	out.AppointedVIPs = in.AppointedVIPs
+	out.VPort = in.VPort
+	out.SessionKeepTime = in.SessionKeepTime
+	out.Remark = in.Remark
+	return nil
+}
+
 func DeepCopy_api_VM(in VM, out *VM, c *conversion.Cloner) error {
 	out.AssetID = in.AssetID
 	out.Address = in.Address
 	out.Gateway = in.Gateway
+	out.VfID = in.VfID
 	out.VlanID = in.VlanID
 	out.MacAddress = in.MacAddress
 	out.Subnet = in.Subnet
@@ -2876,6 +2901,7 @@ func DeepCopy_api_VolumeMount(in VolumeMount, out *VolumeMount, c *conversion.Cl
 	out.Name = in.Name
 	out.ReadOnly = in.ReadOnly
 	out.MountPath = in.MountPath
+	out.SubPath = in.SubPath
 	return nil
 }
 

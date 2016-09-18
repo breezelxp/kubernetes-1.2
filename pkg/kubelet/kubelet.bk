@@ -1250,14 +1250,10 @@ func makeMounts(pod *api.Pod, podDir string, container *api.Container, hostName,
 			vol.SELinuxLabeled = true
 			relabelVolume = true
 		}
-		hostPath := vol.Builder.GetPath() 
-		if mount.SubPath != "" {
-			hostPath = filepath.Join(hostPath, mount.SubPath)
-		}
 		mounts = append(mounts, kubecontainer.Mount{
 			Name:           mount.Name,
 			ContainerPath:  mount.MountPath,
-			HostPath:       hostPath, 
+			HostPath:       vol.Builder.GetPath(),
 			ReadOnly:       mount.ReadOnly,
 			SELinuxRelabel: relabelVolume,
 		})
@@ -1414,89 +1410,91 @@ func (kl *Kubelet) GenerateRunContainerOptions(pod *api.Pod, container *api.Cont
 	return opts, nil
 }
 
+
+
 //func (kl *Kubelet) UpdateRunContainerEnv (pod *api.Pod, vip string, vport string, num int) error {
-func (kl *Kubelet) UpdateRunContainerEnv(pod *api.Pod, vip string, vport_start string, vport_end string) error {
-	var err error
+func (kl *Kubelet) UpdateRunContainerEnv (pod *api.Pod, vip string, vport_start string, vport_end string) error {
+    var err error
+    
+    for ix, _ := range pod.Spec.Containers {
+        length := len(pod.Spec.Containers[ix].Env)
+        //tmpEnv := make([]api.EnvVar,length)
+        //flag := false 
+        j:=0
+        /*
+        for ; j < length; j++{
+            if (pod.Spec.Containers[ix].Env[j].Name == "Vip"){
+                flag = true
+                pod.Spec.Containers[ix].Env[j].Value = vip
+            }
+            if (pod.Spec.Containers[ix].Env[j].Name == "Vport"){
+                 pod.Spec.Containers[ix].Env[j].Value =vport
+            }
+            if (pod.Spec.Containers[ix].Env[j].Name == "Step"){
+                 pod.Spec.Containers[ix].Env[j].Value = fmt.Sprintf("%d",num)
+            }
+            tmpEnv[j].Name = pod.Spec.Containers[ix].Env[j].Name
+            tmpEnv[j].Value = pod.Spec.Containers[ix].Env[j].Value
+        }
+        if (!flag){
+            glog.V(3).Infof( "**** 44444******")
+            var tmp api.EnvVar
+            tmp.Name = "Vip"
+            tmp.Value = vip 
+            tmpEnv = append(tmpEnv, tmp)
+            glog.V(3).Infof( "**** 5555 tmp:%+v, tmpEnv:%+v****", tmp,tmpEnv)
+            tmp.Name = "Vport"
+            tmp.Value = vport 
+            tmpEnv = append(tmpEnv, tmp)
+            tmp.Name = "Step"
+            tmp.Value = fmt.Sprintf("%d",num) 
+            tmpEnv = append(tmpEnv, tmp)
+            pod.Spec.Containers[ix].Env = tmpEnv
+            glog.V(3).Infof( "**** 6666 tmp:%+v, tmpEnv:%+v****", tmp,tmpEnv)
+            glog.V(3).Infof( "**** 7777 Env:%+v****", pod.Spec.Containers[ix].Env)
+        }
+        */
+        var fVip,fVportStart,fVportEnd bool
 
-	for ix, _ := range pod.Spec.Containers {
-		length := len(pod.Spec.Containers[ix].Env)
-		//tmpEnv := make([]api.EnvVar,length)
-		//flag := false
-		j := 0
-		/*
-		   for ; j < length; j++{
-		       if (pod.Spec.Containers[ix].Env[j].Name == "Vip"){
-		           flag = true
-		           pod.Spec.Containers[ix].Env[j].Value = vip
-		       }
-		       if (pod.Spec.Containers[ix].Env[j].Name == "Vport"){
-		            pod.Spec.Containers[ix].Env[j].Value =vport
-		       }
-		       if (pod.Spec.Containers[ix].Env[j].Name == "Step"){
-		            pod.Spec.Containers[ix].Env[j].Value = fmt.Sprintf("%d",num)
-		       }
-		       tmpEnv[j].Name = pod.Spec.Containers[ix].Env[j].Name
-		       tmpEnv[j].Value = pod.Spec.Containers[ix].Env[j].Value
-		   }
-		   if (!flag){
-		       glog.V(3).Infof( "**** 44444******")
-		       var tmp api.EnvVar
-		       tmp.Name = "Vip"
-		       tmp.Value = vip
-		       tmpEnv = append(tmpEnv, tmp)
-		       glog.V(3).Infof( "**** 5555 tmp:%+v, tmpEnv:%+v****", tmp,tmpEnv)
-		       tmp.Name = "Vport"
-		       tmp.Value = vport
-		       tmpEnv = append(tmpEnv, tmp)
-		       tmp.Name = "Step"
-		       tmp.Value = fmt.Sprintf("%d",num)
-		       tmpEnv = append(tmpEnv, tmp)
-		       pod.Spec.Containers[ix].Env = tmpEnv
-		       glog.V(3).Infof( "**** 6666 tmp:%+v, tmpEnv:%+v****", tmp,tmpEnv)
-		       glog.V(3).Infof( "**** 7777 Env:%+v****", pod.Spec.Containers[ix].Env)
-		   }
-		*/
-		var fVip, fVportStart, fVportEnd bool
-
-		for ; j < length; j++ {
-			if pod.Spec.Containers[ix].Env[j].Value == `$K8S_TGW_VIP` {
-				fVip = true
-				pod.Spec.Containers[ix].Env[j].Value = vip
-			}
-			if pod.Spec.Containers[ix].Env[j].Value == `$K8S_TGW_VPORT_START` {
-				pod.Spec.Containers[ix].Env[j].Value = vport_start
-				fVportStart = true
-			}
-			if pod.Spec.Containers[ix].Env[j].Value == `$K8S_TGW_VPORT_END` {
-				pod.Spec.Containers[ix].Env[j].Value = vport_end
-				fVportEnd = true
-			}
-		}
-		if !(fVip && fVportStart && fVportEnd) {
-			glog.Warningf("UpdateRunContainerEnv miss env fVip:%d,fVportStart:%d,fVPortEnd:%d", fVip, fVportStart, fVportEnd)
-		}
+        for ; j < length; j++ {
+            if pod.Spec.Containers[ix].Env[j].Value == `$K8S_TGW_VIP`{
+                fVip = true
+                pod.Spec.Containers[ix].Env[j].Value = vip
+            }
+            if pod.Spec.Containers[ix].Env[j].Value == `$K8S_TGW_VPORT_START`{
+                 pod.Spec.Containers[ix].Env[j].Value = vport_start
+                 fVportStart = true
+            }
+            if pod.Spec.Containers[ix].Env[j].Value == `$K8S_TGW_VPORT_END`{
+                 pod.Spec.Containers[ix].Env[j].Value = vport_end
+                 fVportEnd = true
+            }
+        }
+        if !(fVip && fVportStart && fVportEnd) {
+            glog.Warningf("UpdateRunContainerEnv miss env fVip:%d,fVportStart:%d,fVPortEnd:%d", fVip,fVportStart,fVportEnd)
+        }
 	}
 
-	//glog.V(3).Infof( "****222 pod: %+v *****", pod)
+    //glog.V(3).Infof( "****222 pod: %+v *****", pod)
 
-	pod.ResourceVersion = ""
-	currentPod, err := kl.kubeClient.Core().Pods(pod.Namespace).Update(pod)
-	if err != nil {
-		glog.V(3).Infof("UpdateRunContainerEnv update error:%s", err)
-		return fmt.Errorf("UpdateRunContainerEnv update error:%s", err)
-	}
-	if currentPod == nil {
-		glog.V(3).Infof("UpdateRunContainerEnv update error pod: %s info is NULL", pod.Name)
-		return fmt.Errorf("UpdateRunContainerEnv update error pod: %s info is NULL", pod.Name)
-	}
+    pod.ResourceVersion = ""
+    currentPod, err := kl.kubeClient.Core().Pods(pod.Namespace).Update(pod)
+    if err != nil {
+        glog.V(3).Infof( "UpdateRunContainerEnv update error:%s", err)
+        return fmt.Errorf("UpdateRunContainerEnv update error:%s", err)
+    }    
+    if currentPod == nil {
+        glog.V(3).Infof( "UpdateRunContainerEnv update error pod: %s info is NULL", pod.Name)
+        return fmt.Errorf("UpdateRunContainerEnv update error pod: %s info is NULL", pod.Name)
+    }
 
-	//glog.V(3).Infof( "updateRunContainerEnv pod:%+v",pod)
-	glog.V(3).Infof("UpdateRunContainerEnv update successful! ***")
+    //glog.V(3).Infof( "updateRunContainerEnv pod:%+v",pod)
+    glog.V(3).Infof( "UpdateRunContainerEnv update successful! ***")
 
-	//kl.podManager.UpdatePod(pod)
+    //kl.podManager.UpdatePod(pod)
 
-	err = nil
-	return err
+    err = nil
+    return err
 }
 
 var masterServices = sets.NewString("kubernetes")

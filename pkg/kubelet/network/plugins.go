@@ -60,7 +60,7 @@ type NetworkPlugin interface {
 	SetUpPod(namespace string, name string, podInfraContainerID kubecontainer.DockerID) error
 
 	// TearDownPod is the method called before a pod's infra container will be deleted
-	TearDownPod(namespace string, name string, podInfraContainerID kubecontainer.DockerID) error
+	TearDownPod(namespace string, name string, podInfraContainerID kubecontainer.DockerID, details interface{}) error
 
 	// Status is the method called to obtain the ipv4 or ipv6 addresses of the container
 	Status(namespace string, name string, podInfraContainerID kubecontainer.DockerID) (*PodNetworkStatus, error)
@@ -170,7 +170,7 @@ func (plugin *noopNetworkPlugin) SetUpPod(namespace string, name string, id kube
 	return nil
 }
 
-func (plugin *noopNetworkPlugin) TearDownPod(namespace string, name string, id kubecontainer.DockerID) error {
+func (plugin *noopNetworkPlugin) TearDownPod(namespace string, name string, id kubecontainer.DockerID, details interface{}) error {
 	return nil
 }
 

@@ -18,9 +18,12 @@ package util
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"reflect"
 	"regexp"
+	"strconv"
+	"strings"
 )
 
 // Takes a list of strings and compiles them into a list of regular expressions
@@ -129,4 +132,27 @@ func IntPtrDerefOr(ptr *int, def int) int {
 		return *ptr
 	}
 	return def
+}
+
+// Convert cpu from string to hex
+// e.g.
+// 			   Binary       Hex
+//    CPU 0    0001         1
+//    CPU 1    0010         2
+//    CPU 2    0100         4
+//    CPU 3    1000         8
+func HexCpuSet(cpuSet string) (string, error) {
+	if cpuSet == "" {
+		return "", fmt.Errorf("Cpu Set must be not null")
+	}
+	var value uint64 = 0
+	for _, core := range strings.Split(cpuSet, ",") {
+		fCore, err := strconv.ParseFloat(core, 64)
+		if err != nil {
+			return "", err
+		}
+		value ^= uint64(math.Pow(2, fCore))
+	}
+
+	return strconv.FormatUint(value, 16), nil
 }

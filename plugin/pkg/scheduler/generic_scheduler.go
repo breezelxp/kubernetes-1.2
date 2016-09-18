@@ -101,7 +101,7 @@ func (g *genericScheduler) Schedule(pod *api.Pod, nodeLister algorithm.NodeListe
 		return schedulerapi.SchedulerNode{}, err
 	}
 
-	return AllocateResources(pod, nodeNameToInfo, priorityList, filteredNodes)
+	return g.AllocateResources(pod, nodeNameToInfo, priorityList, filteredNodes)
 }
 
 // selectHost takes a prioritized list of nodes and then picks one
@@ -273,7 +273,7 @@ func PrioritizeNodes(
 	return result, nil
 }
 
-func AllocateResources(
+func (g *genericScheduler) AllocateResources(
 	pod *api.Pod,
 	nodeNameToInfo map[string]*schedulercache.NodeInfo,
 	priorityList schedulerapi.HostPriorityList,
@@ -284,9 +284,9 @@ func AllocateResources(
 	}
 
 	sort.Sort(sort.Reverse(priorityList))
-	mapNode := make(map[string]*api.Node, len(nodeList.Items))
+	mapNode := make(map[string]api.Node, len(nodeList.Items))
 	for _, node := range nodeList.Items {
-		mapNode[node.Name] = &node
+		mapNode[node.Name] = node
 	}
 	var (
 		nodeName     string
@@ -315,6 +315,11 @@ func AllocateResources(
 		cpuset = strings.Join(numaCPUSet, ",")
 	} else if normalCPUSet != nil {
 		cpuset = strings.Join(normalCPUSet, ",")
+	}
+	if len(cpuset) == 0 {
+		if nodeName, err = g.selectHost(priorityList); err != nil {
+			return schedulerapi.SchedulerNode{}, err
+		}
 	}
 	network, err := AllocatePodNetwork(pod, mapNode[nodeName], nodeNameToInfo[nodeName].Pods())
 	if err != nil {
