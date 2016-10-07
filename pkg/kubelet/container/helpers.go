@@ -41,6 +41,7 @@ type HandlerRunner interface {
 type RuntimeHelper interface {
 	GenerateRunContainerOptions(pod *api.Pod, container *api.Container, podIP string) (*RunContainerOptions, error)
 	GetClusterDNS(pod *api.Pod) (dnsServers []string, dnsSearches []string, err error)
+    UpdateRunContainerEnv(pod *api.Pod, vip string, vport_start string, vport_end string) error 
 }
 
 // ShouldContainerBeRestarted checks whether a container needs to be restarted.

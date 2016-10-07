@@ -744,6 +744,9 @@ type VolumeMount struct {
 	ReadOnly bool `json:"readOnly,omitempty"`
 	// Required. Must not contain ':'.
 	MountPath string `json:"mountPath"`
+	// Path within the volume from which the container's volume should be mounted.
+	// Defaults to "" (volume's root).
+	SubPath string `json:"subPath,omitempty"`
 }
 
 // EnvVar represents an environment variable present in a Container.
@@ -2606,22 +2609,22 @@ type Network struct {
 }
 
 type TGWReference struct {
-	ApplicationID   string `json:"applicationnameID,omitempty"`
+	ApplicationID   int    `json:"applicationnameID,omitempty"`
 	ApplyType       int    `json:"applyType"`
 	City            string `json:"city,omitempty"`
 	FwdMode         int    `json:"fwdMode"`
 	Protocol        string `json:"protocol,omitempty"`
 	ISP             string `json:"isp,omitempty"`
-	FlowPeak        string `json:"flowPeak,omitempty"`
+	FlowPeak        int    `json:"flowPeak,omitempty"`
 	NeedNAT         int    `json:"needNAT"`
 	Domain          string `json:"domain,omitempty"`
 	PortNum         int    `json:"portNum,omitempty"`
 	RSIP            string `json:"rsIP,omitempty"`
 	RSWeight        int    `json:"rsWeight,omitempty"`
 	RSType          string `json:"rsType,omitempty"`
-	RSPort          int    `json:"rsPort,omitempty"`
+	RSPort          string `json:"rsPort,omitempty"`
 	AppointedVIPs   string `json:"appointedVIPs,omitempty"`
-	VPort           int    `json:"vPort,omitempty"`
+	VPort           string `json:"vPort,omitempty"`
 	SessionKeepTime int    `json:"sessionKeepTime,omitempty"`
 	Remark          string `json:"remark,omitempty"`
 }

@@ -18,12 +18,10 @@ package dockertools
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -32,6 +30,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+    "encoding/json"
+    "net/http"
+
 
 	"github.com/coreos/go-semver/semver"
 	docker "github.com/fsouza/go-dockerclient"
@@ -166,76 +167,77 @@ type podGetter interface {
 }
 
 type Header struct {
-	CallApp  string `json:"app_app"`
-	Platform string `json:"platform"`
-	User     string `json:"user"`
-	Ticket   string `json:"ticket"`
-	Method   string `json:"method"`
+    CallApp  string `json:"app_app"`
+    Platform string `json:"platform"`
+    User     string `json:"user"`
+    Ticket   string `json:"ticket"`
+    Method   string `json:"method"`
 }
 
-type Tgw struct {
-	City              string `json:"city"`
-	Domain            string `json:"domain"`
-	Fwd_mode          int    `json:"fwd_mode"`
-	Protocol          string `json:"protocol"`
-	Isp               string `json:"isp"`
-	Remark            string `json:"remark"`
-	Session_keep_time int    `json:"session_keep_time"`
-	Need_nat          int    `json:"need_nat"`
-	Vip               string `json:"vip"`
-	Vport             string `json:"vport"`
-	Rsip              string `json:"rsip"`
-	Rsport            string `json:"rsport"`
-	Rsweight          int    `json:"rsweight"`
-	Flow_peak         int    `json:"flow_peak"`
-	PortNum           int    `json:"portNum"`
-	Innerip           string `json:"innerip"`
+type Tgw struct{
+    City     string `json:"city"`
+    Domain   string `json:"domain"`
+    Fwd_mode int    `json:"fwd_mode"`
+    Protocol string `json:"protocol"`
+    Isp      string `json:"isp"`
+    Remark   string `json:"remark"`
+    Session_keep_time  int `json:"session_keep_time"`
+    Need_nat int    `json:"need_nat"`
+    Vip      string `json:"vip"`
+    Vport    string `json:"vport"`
+    Rsip     string `json:"rsip"`
+    Rsport   string `json:"rsport"`
+    Rsweight int    `json:"rsweight"`
+    Flow_peak int   `json:"flow_peak"`
+    PortNum  int    `json:"portNum"`
+    Innerip  string `json:"innerip"`
 }
+
 
 type Condition struct {
-	Applicationnameid int `json:"applicationnameid"`
-	Apply_type        int `json:"apply_type"`
-	Tgw               Tgw `json:"tgw"`
+    Applicationnameid int `json:"applicationnameid"`
+    Apply_type      int    `json:"apply_type"`
+    Tgw             Tgw    `json:"tgw"`
 }
 
 type Action struct {
-	Condition Condition `json:"condition"`
+    Condition Condition `json:"condition"`
 }
 
 type Condition_tgw_del struct {
-	Rsip     string `json:"rsip"`
-	Vip      string `json:"vip"`
-	Vport    string `json:"vport"`
-	Protocol string `json:"protocol"`
+    Rsip      string `json:"rsip"`
+    Vip       string `json:"vip"`
+    Vport     string `json:"vport"`
+    Protocol  string `json:"protocol"`
 }
 
 type Action_tgw_del struct {
-	Condition Condition_tgw_del `json:"condition"`
+    Condition Condition_tgw_del `json:"condition"`
 }
 
 type Params_tgw_del struct {
-	Header Header         `json:"header"`
-	Action Action_tgw_del `json:"action"`
+    Header Header `json:"header"`
+    Action Action_tgw_del `json:"action"`
 }
 
 type Params struct {
-	Header Header `json:"header"`
-	Action Action `json:"action"`
+    Header Header `json:"header"`
+    Action Action `json:"action"`
 }
 
 type Job struct {
-	JobID       string `json:"jobid"`
-	Url         string `json:"url"`
-	Vip         string `json:"vip"`
-	Vport       string `json:"vport"`
-	Vport_start string `json:"vport_start"`
-	Vport_end   string `json:"vport_end"`
+    JobID string `json:"jobid"`
+    Url   string `json:"url"`
+    Vip   string `json:"vip"`
+    Vport string `json:"vport"`
+    Vport_start string `json:"vport_start"`
+    Vport_end string `json:"vport_end"`
 }
 
 type RespData struct {
-	Errcode int    `json:"errcode"`
-	Errmsg  string `json:"errmsg"`
-	Data    Job    `json:"data"`
+    Errcode int    `json:"errcode"`
+    Errmsg  string `json:"errmsg"`
+    Data    Job    `json:"data"`
 }
 
 func PodInfraContainerEnv(env map[string]string) kubecontainer.Option {
@@ -1387,7 +1389,8 @@ func (dm *DockerManager) killPodWithSyncResult(pod *api.Pod, runningPod kubecont
 		if getDockerNetworkMode(ins) != namespaceModeHost && isCNINetworkPod(pod) {
 			teardownNetworkResult := kubecontainer.NewSyncResult(kubecontainer.TeardownNetwork, kubecontainer.BuildPodFullName(runningPod.Name, runningPod.Namespace))
 			result.AddSyncResult(teardownNetworkResult)
-			if err := dm.networkPlugin.TearDownPod(runningPod.Namespace, runningPod.Name, kubecontainer.DockerID(networkContainer.ID.ID), pod); err != nil {
+			dm.networkPlugin.Event(runningPod.Name, map[string]interface{}{runningPod.Name: pod})
+			if err := dm.networkPlugin.TearDownPod(runningPod.Namespace, runningPod.Name, kubecontainer.DockerID(networkContainer.ID.ID)); err != nil {
 				message := fmt.Sprintf("Failed to teardown network for pod %q using network plugins %q: %v", runningPod.ID, dm.networkPlugin.Name(), err)
 				teardownNetworkResult.Fail(kubecontainer.ErrTeardownNetwork, message)
 				glog.Error(message)
@@ -1445,6 +1448,7 @@ func (dm *DockerManager) KillContainerInPod(containerID kubecontainer.ContainerI
 func (dm *DockerManager) killContainer(containerID kubecontainer.ContainerID, container *api.Container, pod *api.Pod, reason string) error {
 	ID := containerID.ID
 	name := ID
+    //glog.V(4).Infof("******* leoxue test killContainer  is %v %v", containerID, container.Name)
 	if container != nil {
 		name = fmt.Sprintf("%s %s", name, container.Name)
 	}
@@ -1797,8 +1801,11 @@ func (dm *DockerManager) computePodContainerChanges(pod *api.Pod, podStatus *kub
 
 	for index, container := range pod.Spec.Containers {
 		expectedHash := kubecontainer.HashContainer(&container)
-
+        glog.V(2).Infof("**** test container:%+v ********", container)
+        glog.V(2).Infof("**** test expectedHash:%s ******",expectedHash)
+  
 		containerStatus := podStatus.FindContainerStatusByName(container.Name)
+        glog.V(2).Infof("**** test  containerStatus:%+v, ContainerStateRunning:%+v *****", containerStatus, kubecontainer.ContainerStateRunning)
 		if containerStatus == nil || containerStatus.State != kubecontainer.ContainerStateRunning {
 			if kubecontainer.ShouldContainerBeRestarted(&container, pod, podStatus) {
 				// If we are here it means that the container is dead and should be restarted, or never existed and should
@@ -1968,6 +1975,7 @@ func (dm *DockerManager) SyncPod(pod *api.Pod, _ api.PodStatus, podStatus *kubec
 		if !usesHostNetwork(pod) {
 			// Call the networking plugin
 			if isCNINetworkPod(pod) {
+				dm.networkPlugin.Event(pod.Name, map[string]interface{}{pod.Name: pod})
 				err = dm.networkPlugin.SetUpPod(pod.Namespace, pod.Name, podInfraContainerID)
 				if err != nil {
 					// TODO: (random-liu) There shouldn't be "Skipping pod" in sync result message
@@ -1996,24 +2004,24 @@ func (dm *DockerManager) SyncPod(pod *api.Pod, _ api.PodStatus, podStatus *kubec
 
 				value, ok := pod.Annotations["tencent.cr/setup-tgw"]
 
-				if ok && (value != "") {
-					var r api.TGWReference
-					err := json.Unmarshal([]byte(value), &r)
-					if err == nil {
-						var ret bool
-						var vip, vport, vport_start, vport_end string
-						ret, vip, vport, vport_start, vport_end = TgwApply(pod.Status.Network.Address, r)
-						if ret {
-							dm.runtimeHelper.UpdateRunContainerEnv(pod, vip, vport_start, vport_end)
-						} else {
-							glog.Warningf("TgwApply failed! ret:%s vip:%s vport:%s", ret, vip, vport)
-						}
-					} else {
-						glog.V(3).Infof("***** get pod.Annotations Unmarshal failed! err:%s ******", err)
-					}
-				} else {
-					glog.V(3).Infof("***** get pod.Annotations err:%s, value:%s ******", ok, value)
-				}
+                if (ok && (value != "")){
+                    var r api.TGWReference
+                    err := json.Unmarshal([]byte(value), &r)
+                    if err == nil {
+                        var ret bool
+                        var  vip , vport, vport_start, vport_end string 
+                        ret,vip,vport,vport_start,vport_end = TgwApply(pod.Status.Network.Address,r)
+                        if (ret){
+                            dm.runtimeHelper.UpdateRunContainerEnv(pod, vip, vport_start, vport_end)
+                        }else{
+                            glog.Warningf("TgwApply failed! ret:%s vip:%s vport:%s", ret,vip,vport)
+                        }
+                    }else{
+                        glog.V(3).Infof("***** get pod.Annotations Unmarshal failed! err:%s ******", err)
+                    }
+                }else{
+                    glog.V(3).Infof("***** get pod.Annotations err:%s, value:%s ******", ok,value)
+                }
 			}
 
 			// Setup the host interface unless the pod is on the host's network (FIXME: move to networkPlugin when ready)
@@ -2289,199 +2297,202 @@ func (dm *DockerManager) GetPodStatus(uid types.UID, name, namespace string) (*k
 	return podStatus, nil
 }
 
-func TgwApply(Rsip string, tgw_info api.TGWReference) (bool, string, string, string, string) {
+func TgwApply(Rsip string, tgw_info api.TGWReference ) (bool,string,string,string,string){
 
-	reg := regexp.MustCompile(`(.+)/(.+)`)
-	address := reg.ReplaceAllString(Rsip, "$1")
 
-	params := Params{
-		Header: Header{
-			CallApp:  "tgw_apply",
-			Platform: "k8s",
-			User:     "leoxue",
-			Method:   "tgw_apply",
-		},
-		Action: Action{
-			Condition: Condition{
-				Applicationnameid: tgw_info.ApplicationID,
-				Apply_type:        tgw_info.ApplyType,
-				Tgw: Tgw{
-					City:              tgw_info.City,
-					Domain:            tgw_info.Domain,
-					Fwd_mode:          tgw_info.FwdMode,
-					Protocol:          tgw_info.Protocol,
-					Isp:               tgw_info.ISP,
-					Remark:            tgw_info.Remark,
-					Session_keep_time: tgw_info.SessionKeepTime,
-					Need_nat:          tgw_info.NeedNAT,
-					Vip:               tgw_info.AppointedVIPs,
-					Vport:             tgw_info.VPort, //tgw_info.VPort,
-					Rsip:              address,
-					Rsport:            tgw_info.RSPort, //tgw_info.RSPort,
-					Rsweight:          tgw_info.RSWeight,
-					Flow_peak:         tgw_info.FlowPeak, //tgw_info.FlowPeak,
-					PortNum:           tgw_info.PortNum,
-					Innerip:           "0.0.0.0",
-				},
-			},
-		},
-	}
+    reg := regexp.MustCompile(`(.+)/(.+)`)
+    address := reg.ReplaceAllString(Rsip, "$1")
 
-	var respData RespData
-	body, _, err := readBody(call("POST", "/api_service/v1/tgw_operation/", map[string]Params{"params": params}))
-	if err != nil {
-		glog.V(3).Infof("TgwApply err:%+v", err)
-		return false, "", "", "", ""
-	}
-	json.Unmarshal(body, &respData)
-	if respData.Errcode > 1 {
-		glog.V(3).Infof("TgwApply return err, code:%+v msg:%+v******", respData.Errcode, respData.Errmsg)
-		return false, "", "", "", ""
-	}
-	jobid := respData.Data.JobID
-	vip := respData.Data.Vip
-	vport := respData.Data.Vport
-	vport_start := respData.Data.Vport_start
-	vport_end := respData.Data.Vport_end
-	glog.V(3).Infof("TgwApply jobid:%+v ", jobid)
-	// check job result
-	glog.V(3).Infof(" Check tgwapply result...")
-	retries := 360
-	for i := 1; i <= retries; i++ {
-		body, _, err := readBody(call("GET", fmt.Sprintf("/api_service/v1/job/%s", jobid), nil))
-		if err != nil && i == retries {
-			glog.V(4).Infof("Check tgwapply result request err:%+v", err)
-			//fmt.Println(err)
-			return false, "", "", "", ""
-		} else if err != nil {
-			glog.V(4).Infof("Check tgwapply result Retry %+v", i)
-			time.Sleep(10 * time.Second)
-			continue
-		}
-		json.Unmarshal(body, &respData)
-		if respData.Errcode > 1 {
-			glog.V(4).Infof("Check tgwapply result return err, err: %+v ", respData.Errmsg)
-			return false, "", "", "", ""
-		} else if respData.Errcode == 1 {
-			glog.V(4).Infof("Check tgwapply result Retry:%+v", i)
-			time.Sleep(10 * time.Second)
-			continue
-		} else {
-			break
-		}
-	}
-	glog.V(4).Infof("TgwApply Complete VIP:%s VPORT:%s", vip, vport)
-	return true, vip, vport, vport_start, vport_end
+    params := Params{
+        Header: Header{
+            CallApp:  "tgw_apply",
+            Platform: "k8s",
+            User:     "leoxue",
+            Method:   "tgw_apply",
+        },
+        Action: Action{
+            Condition: Condition{
+                Applicationnameid: tgw_info.ApplicationID,
+                Apply_type:      tgw_info.ApplyType,
+                Tgw: Tgw{
+                    City:     tgw_info.City,
+                    Domain:   tgw_info.Domain,
+                    Fwd_mode: tgw_info.FwdMode,
+                    Protocol: tgw_info.Protocol,
+                    Isp:      tgw_info.ISP,
+                    Remark:   tgw_info.Remark,
+                    Session_keep_time: tgw_info.SessionKeepTime,
+                    Need_nat: tgw_info.NeedNAT,
+                    Vip:      tgw_info.AppointedVIPs,
+                    Vport:    tgw_info.VPort,//tgw_info.VPort,
+                    Rsip:     address,
+                    Rsport:   tgw_info.RSPort,//tgw_info.RSPort,
+                    Rsweight: tgw_info.RSWeight,
+                    Flow_peak: tgw_info.FlowPeak,//tgw_info.FlowPeak,
+                    PortNum:  tgw_info.PortNum,
+                    Innerip:  "0.0.0.0",
+                },
+            },
+        },
+    }
+
+    var respData RespData
+    body, _, err := readBody(call("POST", "/api_service/v1/tgw_operation/", map[string]Params{"params": params}))
+    if err != nil {
+        glog.V(3).Infof("TgwApply err:%+v", err) 
+        return false,"","","",""
+    }
+    json.Unmarshal(body, &respData)
+    if respData.Errcode > 1 {
+        glog.V(3).Infof("TgwApply return err, code:%+v msg:%+v******", respData.Errcode, respData.Errmsg)
+        return false,"","","",""
+    }
+    jobid := respData.Data.JobID
+    vip := respData.Data.Vip
+    vport := respData.Data.Vport
+    vport_start := respData.Data.Vport_start
+    vport_end := respData.Data.Vport_end
+    glog.V(3).Infof("TgwApply jobid:%+v ", jobid)
+    // check job result
+    glog.V(3).Infof(" Check tgwapply result...")
+    retries := 360
+    for i := 1; i <= retries; i++ {
+        body, _, err := readBody(call("GET", fmt.Sprintf("/api_service/v1/job/%s", jobid), nil))
+        if err != nil && i == retries {
+            glog.V(4).Infof("Check tgwapply result request err:%+v",err)
+            //fmt.Println(err)
+            return false,"","","",""
+        } else if err != nil {
+            glog.V(4).Infof("Check tgwapply result Retry %+v",i)
+            time.Sleep(10 * time.Second)
+            continue
+        }
+        json.Unmarshal(body, &respData)
+        if respData.Errcode > 1 {
+            glog.V(4).Infof("Check tgwapply result return err, err: %+v ", respData.Errmsg)
+            return false,"","","",""
+        } else if respData.Errcode == 1 {
+            glog.V(4).Infof("Check tgwapply result Retry:%+v",i)
+            time.Sleep(10 * time.Second)
+            continue
+        } else {
+            break
+        }
+    }
+    glog.V(4).Infof("TgwApply Complete VIP:%s VPORT:%s",vip,vport)    
+    return true,vip,vport,vport_start,vport_end
 }
+
 
 func call(method, path string, data interface{}) (io.ReadCloser, int, error) {
-	var server string = "so.ied.com"
-	//var server string = "10.150.165.100"
-	params, err := encodeData(data)
-	if err != nil {
-		return nil, -1, err
-	}
-	req, err := http.NewRequest(method, path, params)
-	if err != nil {
-		return nil, -1, err
-	}
-	if data != nil {
-		req.Header.Set("Content-Type", "application/json")
-	} else if method == "POST" {
-		req.Header.Set("Content-Type", "plain/text")
-	}
-	req.URL.Host = server
-	req.URL.Scheme = "http"
-	cli := http.Client{}
-	resp, err := cli.Do(req)
-	if err != nil {
-		return nil, -1, err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, -1, err
-		}
-		if len(body) == 0 {
-			return nil, resp.StatusCode, fmt.Errorf("Error: request returned %s for API", http.StatusText(resp.StatusCode))
-		}
-	}
-	return resp.Body, resp.StatusCode, nil
+    var server string = "so.ied.com"
+    //var server string = "10.150.165.100"
+    params, err := encodeData(data)
+    if err != nil {
+        return nil, -1, err
+    }
+    req, err := http.NewRequest(method, path, params)
+    if err != nil {
+        return nil, -1, err
+    }
+    if data != nil {
+        req.Header.Set("Content-Type", "application/json")
+    } else if method == "POST" {
+        req.Header.Set("Content-Type", "plain/text")
+    }
+    req.URL.Host = server
+    req.URL.Scheme = "http"
+    cli := http.Client{}
+    resp, err := cli.Do(req)
+    if err != nil {
+        return nil, -1, err
+    }
+    if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+        body, err := ioutil.ReadAll(resp.Body)
+        if err != nil {
+            return nil, -1, err
+        }
+        if len(body) == 0 {
+            return nil, resp.StatusCode, fmt.Errorf("Error: request returned %s for API", http.StatusText(resp.StatusCode))
+        }
+    }
+    return resp.Body, resp.StatusCode, nil
 }
 
+
 func encodeData(data interface{}) (*bytes.Buffer, error) {
-	params := bytes.NewBuffer(nil)
-	if data != nil {
-		buf, err := json.Marshal(data)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := params.Write(buf); err != nil {
-			return nil, err
-		}
-	}
-	return params, nil
+    params := bytes.NewBuffer(nil)
+    if data != nil {
+        buf, err := json.Marshal(data)
+        if err != nil {
+            return nil, err
+        }
+        if _, err := params.Write(buf); err != nil {
+            return nil, err
+        }
+    }
+    return params, nil
 }
 
 func readBody(stream io.ReadCloser, statusCode int, err error) ([]byte, int, error) {
-	if stream != nil {
-		defer stream.Close()
-	}
-	if err != nil {
-		return nil, statusCode, err
-	}
-	body, err := ioutil.ReadAll(stream)
-	if err != nil {
-		return nil, -1, err
-	}
-	return body, statusCode, nil
+    if stream != nil {
+        defer stream.Close()
+    }
+    if err != nil {
+        return nil, statusCode, err
+    }
+    body, err := ioutil.ReadAll(stream)
+    if err != nil {
+        return nil, -1, err
+    }
+    return body, statusCode, nil
 }
 
-func TgwDel(pod *api.Pod) bool {
+func TgwDel(pod *api.Pod) bool{
 
-	var Protocol string = "UDP"
-	var Vip string = "59.37.116.62"
-	var Vport string = "[24001,24010]"
-	var Rsip string = "10.241.204.2"
-	var User string = "leoxue"
-	var server string = "so.ied.com"
-	//var server string = "10.150.165.100"
+    var Protocol string = "UDP"
+    var Vip string = "59.37.116.62"
+    var Vport string = "[24001,24010]"
+    var Rsip string = "10.241.204.2"
+    var User string = "leoxue"
+    var server string = "so.ied.com"
+    //var server string = "10.150.165.100"
 
-	fmt.Println("Start to call so...")
-	fmt.Printf("Service address: %s\n", server)
+    fmt.Println("Start to call so...")
+    fmt.Printf("Service address: %s\n", server)
 
-	params := Params_tgw_del{
-		Header: Header{
-			CallApp:  "tgw_apply",
-			Platform: "k8s",
-			User:     User,
-			Method:   "tgw_apply",
-		},
-		Action: Action_tgw_del{
-			Condition: Condition_tgw_del{
-				Rsip:     Rsip,
-				Vip:      Vip,
-				Vport:    Vport,
-				Protocol: Protocol,
-			},
-		},
-	}
+    params := Params_tgw_del{
+        Header: Header{
+            CallApp:  "tgw_apply",
+            Platform: "k8s",
+            User:     User,
+            Method:   "tgw_apply",
+        },
+        Action: Action_tgw_del{
+            Condition: Condition_tgw_del{
+                Rsip:     Rsip,
+                Vip:      Vip,
+                Vport:    Vport,
+                Protocol: Protocol,
+            },
+        },
+    }
 
-	fmt.Printf("params: % \n", params)
-	var respData RespData
-	body, _, err := readBody(call("POST", "/api_service/v1/tgw_operation/", map[string]Params_tgw_del{"params": params}))
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-	json.Unmarshal(body, &respData)
-	if respData.Errcode > 1 {
-		fmt.Printf("Error: code(%d), msg(%s)\n", respData.Errcode, respData.Errmsg)
-		return false
-	}
-
-	fmt.Println("Complete")
-	return true
+    fmt.Printf("params: % \n", params)
+    var respData RespData
+    body, _, err := readBody(call("POST", "/api_service/v1/tgw_operation/", map[string]Params_tgw_del{"params": params}))
+    if err != nil {
+        fmt.Println(err)
+        return false
+    }
+    json.Unmarshal(body, &respData)
+    if respData.Errcode > 1 {
+        fmt.Printf("Error: code(%d), msg(%s)\n", respData.Errcode, respData.Errmsg)
+        return false
+    }
+    
+    fmt.Println("Complete")
+    return true
 }
 
 func (dm *DockerManager) StartContainerByID(containerID kubecontainer.ContainerID) error {
@@ -2495,8 +2506,8 @@ func (dm *DockerManager) StartContainerByID(containerID kubecontainer.ContainerI
 	}
 	//ref, _ := dm.containerRefManager.GetRef(containerID)
 	if err := dm.client.StartContainer(containerID.ID, nil); err != nil {
-		//	dm.recorder.Eventf(ref, api.EventTypeWarning, kubecontainer.FailedToStartContainer,
-		//		"Failed to start container with docker id %v with error: %v", utilstrings.ShortenString(containerID.ID, 12), err)
+	//	dm.recorder.Eventf(ref, api.EventTypeWarning, kubecontainer.FailedToStartContainer,
+	//		"Failed to start container with docker id %v with error: %v", utilstrings.ShortenString(containerID.ID, 12), err)
 		return err
 	}
 	//dm.recorder.Eventf(ref, api.EventTypeNormal, kubecontainer.StartedContainer, "Started container with docker id %v", utilstrings.ShortenString(containerID.ID, 12))

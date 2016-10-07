@@ -141,7 +141,7 @@ func (plugin *execNetworkPlugin) SetUpPod(namespace string, name string, id kube
 	return err
 }
 
-func (plugin *execNetworkPlugin) TearDownPod(namespace string, name string, id kubecontainer.DockerID) error {
+func (plugin *execNetworkPlugin) TearDownPod(namespace string, name string, id kubecontainer.DockerID, details interface{}) error {
 	out, err := utilexec.New().Command(plugin.getExecutable(), tearDownCmd, namespace, name, string(id)).CombinedOutput()
 	glog.V(5).Infof("TearDownPod 'exec' network plugin output: %s, %v", string(out), err)
 	return err

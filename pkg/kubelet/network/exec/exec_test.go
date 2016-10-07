@@ -252,7 +252,7 @@ func TestPluginTearDownHook(t *testing.T) {
 
 	plug, err := network.InitNetworkPlugin(ProbeNetworkPlugins(testPluginPath), pluginName, nettest.NewFakeHost(nil))
 
-	err = plug.TearDownPod("podNamespace", "podName", "dockerid2345")
+	err = plug.TearDownPod("podNamespace", "podName", "dockerid2345", nil)
 	if err != nil {
 		t.Errorf("Expected nil")
 	}

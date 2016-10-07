@@ -195,7 +195,7 @@ func TestCNIPlugin(t *testing.T) {
 	if string(output) != expectedOutput {
 		t.Errorf("Mismatch in expected output for setup hook. Expected '%s', got '%s'", expectedOutput, string(output))
 	}
-	err = plug.TearDownPod("podNamespace", "podName", "test_infra_container")
+	err = plug.TearDownPod("podNamespace", "podName", "test_infra_container", nil)
 	if err != nil {
 		t.Errorf("Expected nil: %v", err)
 	}

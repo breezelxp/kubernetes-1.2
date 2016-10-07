@@ -705,6 +705,28 @@ func validateDownwardAPIVolumeSource(downwardAPIVolume *api.DownwardAPIVolumeSou
 
 // This validate will make sure targetPath:
 // 1. is not abs path
+// 2. does not start with '../'
+// 3. does not contain '/../'
+// 4. does not end with '/..'
+func validateSubPath(targetPath string, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if path.IsAbs(targetPath) {
+		allErrs = append(allErrs, field.Invalid(fldPath, targetPath, "must be a relative path"))
+	}
+	if strings.HasPrefix(targetPath, "../") {
+		allErrs = append(allErrs, field.Invalid(fldPath, targetPath, "must not start with '../'"))
+	}
+	if strings.Contains(targetPath, "/../") {
+		allErrs = append(allErrs, field.Invalid(fldPath, targetPath, "must not contain '/../'"))
+	}
+	if strings.HasSuffix(targetPath, "/..") {
+		allErrs = append(allErrs, field.Invalid(fldPath, targetPath, "must not end with '/..'"))
+	}
+	return allErrs
+}
+
+// This validate will make sure targetPath:
+// 1. is not abs path
 // 2. does not contain '..'
 // 3. does not start with '..'
 func validateVolumeSourcePath(targetPath string, fldPath *field.Path) field.ErrorList {
@@ -1107,6 +1129,7 @@ func validateSecretKeySelector(s *api.SecretKeySelector, fldPath *field.Path) fi
 
 func validateVolumeMounts(mounts []api.VolumeMount, volumes sets.String, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
+	mountpoints := sets.NewString()
 
 	for i, mnt := range mounts {
 		idxPath := fldPath.Index(i)
@@ -1119,6 +1142,13 @@ func validateVolumeMounts(mounts []api.VolumeMount, volumes sets.String, fldPath
 			allErrs = append(allErrs, field.Required(idxPath.Child("mountPath"), ""))
 		} else if strings.Contains(mnt.MountPath, ":") {
 			allErrs = append(allErrs, field.Invalid(idxPath.Child("mountPath"), mnt.MountPath, "must not contain ':'"))
+		}
+		if mountpoints.Has(mnt.MountPath) {
+			allErrs = append(allErrs, field.Invalid(idxPath.Child("mountPath"), mnt.MountPath, "must be unique"))
+		}
+		mountpoints.Insert(mnt.MountPath)
+		if len(mnt.SubPath) > 0 {
+			allErrs = append(allErrs, validateSubPath(mnt.SubPath, fldPath.Child("subPath"))...)
 		}
 	}
 	return allErrs
@@ -1594,6 +1624,7 @@ func ValidatePodUpdate(newPod, oldPod *api.Pod) field.ErrorList {
 	var newContainers []api.Container
 	for ix, container := range mungedPod.Spec.Containers {
 		container.Image = oldPod.Spec.Containers[ix].Image
+        container.Env = oldPod.Spec.Containers[ix].Env
 		newContainers = append(newContainers, container)
 	}
 	mungedPod.Spec.Containers = newContainers
@@ -1606,6 +1637,9 @@ func ValidatePodUpdate(newPod, oldPod *api.Pod) field.ErrorList {
 	if api.PullPolicy(oldPod.Spec.RestartPolicy) != "" {
 		mungedPod.Spec.RestartPolicy = oldPod.Spec.RestartPolicy
 	}
+
+    //glog.V(3).Infof( "**** mungedPod.Spec: %+v",mungedPod.Spec)
+    //glog.V(3).Infof( "**** oldPod.Spec: %+v",oldPod.Spec)
 	if !api.Semantic.DeepEqual(mungedPod.Spec, oldPod.Spec) {
 		//TODO: Pinpoint the specific field that causes the invalid error after we have strategic merge diff
 		allErrs = append(allErrs, field.Forbidden(specPath, "pod updates may not change fields other than `containers[*].image` or `spec.activeDeadlineSeconds`"))
