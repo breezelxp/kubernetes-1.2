@@ -143,3 +143,7 @@ That said, if you have questions, reach out to us one way or another.  We don't 
 
 
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/README.md?pixel)]()
+
+### Modify Record
+1、修改gsedatapipe 通信方式
+2、将pod 的label 信息打包进 container 的labels

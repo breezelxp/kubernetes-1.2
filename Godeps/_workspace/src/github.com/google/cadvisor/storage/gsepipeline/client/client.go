@@ -61,13 +61,26 @@ func (gsec *client) connect() error {
 		return fmt.Errorf("no gse data pipe  available, maybe gseagent is not running")
 	}
 
-	glog.V(3).Infof("current endpoint of gsedatapipe: %s", gsec.endpoint)
+	glog.Infof("current endpoint of gsedatapipe: %s", gsec.endpoint)
 	gsec.conn = conn
 	return nil
 }
 
 // Send write data to data pipe
 func (gsec *client) send(dataid uint32, data []byte) error {
+
+	defer func() {
+		if err := recover(); err != nil {
+
+			glog.Errorf("send data to gse data pipe  failed:%v", err)
+
+			if nil != gsec.conn {
+
+				gsec.conn.Close()
+				gsec.conn = nil
+			}
+		}
+	}()
 
 	if gsec.conn == nil {
 		if error := gsec.connect(); error != nil {
