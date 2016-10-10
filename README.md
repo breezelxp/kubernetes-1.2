@@ -147,3 +147,4 @@ That said, if you have questions, reach out to us one way or another.  We don't 
 ### Modify Record
 1、修改gsedatapipe 通信方式
 2、将pod 的label 信息打包进 container 的labels
+3、对gsepipeline数据发送侧 增加 recover 代码
