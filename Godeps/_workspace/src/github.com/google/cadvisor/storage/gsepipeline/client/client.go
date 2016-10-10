@@ -148,15 +148,17 @@ func New(endpoint string) (AsyncProducer, error) {
 
 	if err := cli.connect(); nil != err {
 
-		glog.V(0).Infof("can not connect remote pipe : %s, error info: %v", cli.endpoint, err)
+		glog.Infof("can not connect remote pipe : %s, error info: %v", cli.endpoint, err)
 	}
 
 	go func() {
 
 		defer func() {
+			if nil != cli.conn {
 
-			cli.conn.Close()
-			cli.conn = nil
+				cli.conn.Close()
+				cli.conn = nil
+			}
 		}()
 
 		for {
