@@ -3,6 +3,7 @@ package gsepipeline
 import (
 	"encoding/json"
 	"github.com/golang/glog"
+	"github.com/google/cadvisor/container/docker"
 	info "github.com/google/cadvisor/info/v1"
 	"github.com/google/cadvisor/storage"
 	gseclient "github.com/google/cadvisor/storage/gsepipeline/client"
@@ -88,6 +89,10 @@ func newGseStorage(endpoint string, dataid uint64) (*gseStorage, error) {
 
 func (gse *gseStorage) AddStats(ref info.ContainerReference, stats *info.ContainerStats) error {
 
+	if ref.Namespace != docker.DockerNamespace {
+
+		return nil
+	}
 	var containerName string
 	if len(ref.Aliases) > 0 {
 		containerName = ref.Aliases[0]
