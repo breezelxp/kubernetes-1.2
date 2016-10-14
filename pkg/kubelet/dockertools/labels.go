@@ -88,7 +88,7 @@ func newLabels(container *api.Container, pod *api.Pod, restartCount int, enableC
 
 	// set container label, include pod labels
 	for k, v := range pod.Labels {
-		s := []string{"io", "kubernetes", "pod", "metedata", "label", k}
+		s := []string{"io", "kubernetes", "pod", "metadata", "label", k}
 		labels[strings.Join(s, ".")] = v
 	}
 
