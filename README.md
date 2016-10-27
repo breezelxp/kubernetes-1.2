@@ -149,3 +149,4 @@ That said, if you have questions, reach out to us one way or another.  We don't 
 2、将pod 的label 信息打包进 container 的labels
 3、对gsepipeline数据发送侧 增加 recover 代码
 4、对于raw 采集的数据，在namespace 中用 raw 标记和 docker 采集的而数据一样的处理方式
+5、对于不是docker 模块采集的数据不进行上报，如raw 采集的数据是在上报的时候会被抛弃的，因为raw采集回来的数据缺少container 信息。
