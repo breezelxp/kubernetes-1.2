@@ -9,6 +9,7 @@ import (
 	gseclient "github.com/google/cadvisor/storage/gsepipeline/client"
 	//kubeletclient "github.com/google/cadvisor/storage/gsepipeline/kubelet"
 	//kube_client "k8s.io/kubernetes/pkg/kubelet/client"
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -49,6 +50,9 @@ func getHostETH1Address() (string, error) {
 	addr, err := ief.Addrs()
 	if err != nil {
 		return hostName, err
+	}
+	if len(addr) < 1 {
+		return hostName, fmt.Errorf("can not get interfaces")
 	}
 	return addr[0].(*net.IPNet).IP.String(), nil
 }
