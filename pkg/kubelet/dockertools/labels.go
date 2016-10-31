@@ -84,12 +84,16 @@ func GetPodNamespace(labels map[string]string) string {
 }
 
 func newLabels(container *api.Container, pod *api.Pod, restartCount int, enableCustomMetrics bool) map[string]string {
+
 	labels := map[string]string{}
 
-	// set container label, include pod labels
-	for k, v := range pod.Labels {
-		s := []string{"io", "kubernetes", "pod", "metadata", "label", k}
-		labels[strings.Join(s, ".")] = v
+	if pod.Labels != nil {
+
+		// set container label, include pod labels
+		for k, v := range pod.Labels {
+			s := []string{"io", "kubernetes", "pod", "metadata", "label", k}
+			labels[strings.Join(s, ".")] = v
+		}
 	}
 
 	labels[kubernetesPodNameLabel] = pod.Name
