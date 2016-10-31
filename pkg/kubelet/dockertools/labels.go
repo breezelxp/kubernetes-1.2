@@ -18,8 +18,6 @@ package dockertools
 
 import (
 	"encoding/json"
-	"strconv"
-
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api"
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
@@ -27,6 +25,8 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/util/format"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/types"
+	"strconv"
+	"strings"
 )
 
 // This file contains all docker label related constants and functions, including:
@@ -84,11 +84,18 @@ func GetPodNamespace(labels map[string]string) string {
 }
 
 func newLabels(container *api.Container, pod *api.Pod, restartCount int, enableCustomMetrics bool) map[string]string {
+
 	labels := map[string]string{}
-	// copy pod labels to newLabels
+
 	if pod.Labels != nil {
-		labels = pod.Labels
+
+		// set container label, include pod labels
+		for k, v := range pod.Labels {
+			s := []string{"io", "kubernetes", "pod", "metadata", "label", k}
+			labels[strings.Join(s, ".")] = v
+		}
 	}
+
 	labels[kubernetesPodNameLabel] = pod.Name
 	labels[kubernetesPodNamespaceLabel] = pod.Namespace
 	labels[kubernetesPodUIDLabel] = string(pod.UID)
