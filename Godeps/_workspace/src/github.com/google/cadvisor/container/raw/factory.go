@@ -28,6 +28,8 @@ import (
 	"github.com/golang/glog"
 )
 
+const RawNamespace = "raw"
+
 var dockerOnly = flag.Bool("docker_only", false, "Only report docker containers in addition to root stats")
 
 type rawFactory struct {

@@ -105,7 +105,8 @@ func newRawContainerHandler(name string, cgroupSubsystems *libcontainer.CgroupSu
 func (self *rawContainerHandler) ContainerReference() (info.ContainerReference, error) {
 	// We only know the container by its one name.
 	return info.ContainerReference{
-		Name: self.name,
+		Name:      self.name,
+		Namespace: RawNamespace,
 	}, nil
 }
 

@@ -3,18 +3,21 @@ package gsepipeline
 import (
 	"encoding/json"
 	"github.com/golang/glog"
+	"github.com/google/cadvisor/container/docker"
 	info "github.com/google/cadvisor/info/v1"
 	"github.com/google/cadvisor/storage"
 	gseclient "github.com/google/cadvisor/storage/gsepipeline/client"
-	kubeletclient "github.com/google/cadvisor/storage/gsepipeline/kubelet"
-	kube_client "k8s.io/kubernetes/pkg/kubelet/client"
+	//kubeletclient "github.com/google/cadvisor/storage/gsepipeline/kubelet"
+	//kube_client "k8s.io/kubernetes/pkg/kubelet/client"
+	"fmt"
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 type detailSpec struct {
-	Timestamp      int64                   `json:"timestamp"`
+	Timestamp      time.Time               `json:"timestamp"`
 	MachineName    string                  `json:"machine_name,omitempty"`
 	ContainerID    string                  `json:"container_id,omitempty"`
 	ContainerName  string                  `json:"container_name,omitempty"`
@@ -23,11 +26,9 @@ type detailSpec struct {
 }
 
 type gseStorage struct {
-	client      *gseclient.Client
+	client      gseclient.AsyncProducer
 	dataid      uint64
-	host        kubeletclient.Host
 	machineName string
-	kubeletcli  *kubeletclient.KubeletClient
 }
 
 func init() {
@@ -36,7 +37,7 @@ func init() {
 
 func new() (storage.StorageDriver, error) {
 
-	return newGseStorage(*storage.ArgDbHost, *storage.ArgKubeletIp, *storage.ArgKubeletPort, *storage.ArgDataId)
+	return newGseStorage(*storage.ArgDbHost, *storage.ArgDataId)
 }
 
 func getHostETH1Address() (string, error) {
@@ -50,22 +51,27 @@ func getHostETH1Address() (string, error) {
 	if err != nil {
 		return hostName, err
 	}
+	if len(addr) < 1 {
+		return hostName, fmt.Errorf("can not get interfaces")
+	}
 	return addr[0].(*net.IPNet).IP.String(), nil
 }
 
-func newGseStorage(endpoint string, kubeletip string, kubeletport int, dataid uint64) (*gseStorage, error) {
+func newGseStorage(endpoint string, dataid uint64) (*gseStorage, error) {
 
-	glog.V(0).Info("endpoint:", endpoint, "kubelet ip:", kubeletip, "kubelet port:", kubeletport, "dataid:", dataid)
+	glog.V(0).Info("endpoint:", endpoint, "dataid:", dataid)
 
 	client, err := gseclient.New(endpoint)
 	if nil != err {
 		return nil, err
 	}
 
-	client.Connect()
+	/*
+		client.Connect()
 
-	config := &kube_client.KubeletClientConfig{EnableHttps: false}
-	kubeletd, err := kubeletclient.NewKubeletClient(config)
+		config := &kube_client.KubeletClientConfig{EnableHttps: false}
+		kubeletd, err := kubeletclient.NewKubeletClient(config)
+	*/
 
 	address, err := getHostETH1Address()
 	if err != nil {
@@ -75,10 +81,8 @@ func newGseStorage(endpoint string, kubeletip string, kubeletport int, dataid ui
 	if nil == err {
 		gseStorageClient := &gseStorage{
 			client:      client,
-			kubeletcli:  kubeletd,
 			dataid:      dataid,
-			machineName: address,
-			host:        kubeletclient.Host{IP: kubeletip, Port: kubeletport}}
+			machineName: address}
 
 		return gseStorageClient, nil
 	}
@@ -89,8 +93,10 @@ func newGseStorage(endpoint string, kubeletip string, kubeletport int, dataid ui
 
 func (gse *gseStorage) AddStats(ref info.ContainerReference, stats *info.ContainerStats) error {
 
-	timestamp := stats.Timestamp.UnixNano()
+	if ref.Namespace != docker.DockerNamespace {
 
+		return nil
+	}
 	var containerName string
 	if len(ref.Aliases) > 0 {
 		containerName = ref.Aliases[0]
@@ -102,7 +108,7 @@ func (gse *gseStorage) AddStats(ref info.ContainerReference, stats *info.Contain
 		MachineName:    gse.machineName,
 		ContainerID:    ref.Id,
 		ContainerName:  containerName,
-		Timestamp:      timestamp,
+		Timestamp:      stats.Timestamp,
 		ContainerStats: stats}
 
 	detail.ContainerInfo.Id = ref.Id
@@ -129,11 +135,8 @@ func (gse *gseStorage) AddStats(ref info.ContainerReference, stats *info.Contain
 		return err
 	}
 
-	err = gse.client.Send(uint32(gse.dataid), b)
-	if err != nil {
-		glog.Errorf("%v", err)
-		return err
-	}
+	gse.client.Input(&gseclient.ProducerMessage{DataID: uint32(gse.dataid), Value: b})
+
 	return nil
 }
 
