@@ -17,13 +17,17 @@ limitations under the License.
 package kubelet
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/golang/glog"
 	cadvisorapi "github.com/google/cadvisor/info/v2"
 	"k8s.io/kubernetes/pkg/kubelet/cadvisor"
+	"k8s.io/kubernetes/pkg/util"
+	"os/exec"
 )
 
 // Manages policy for diskspace management for disks holding docker images and root fs.
@@ -36,6 +40,8 @@ type diskSpaceManager interface {
 	// Checks the available disk space
 	IsRootDiskSpaceAvailable() (bool, error)
 	IsDockerDiskSpaceAvailable() (bool, error)
+	SetDiskQuota(pid int, containerName, quotaPath string, storage int64) error
+	DeleteDiskQuota(pid int, containerName string) error
 }
 
 type DiskSpacePolicy struct {
@@ -116,6 +122,60 @@ func validatePolicy(policy DiskSpacePolicy) error {
 	}
 	if policy.RootFreeDiskMB < 0 {
 		return fmt.Errorf("free disk space should be non-negative. Invalid value %d for root disk space threshold.", policy.RootFreeDiskMB)
+	}
+	return nil
+}
+
+func (dm *realDiskSpaceManager) SetDiskQuota(pid int, containerName, quotaPath string, storage int64) error {
+	dm.lock.Lock()
+	defer dm.lock.Unlock()
+	if storage <= 0 {
+		glog.Infof("Container(%s) storage is less than zero, do not need to set quota", containerName)
+		return nil
+	}
+	projid := pid % 0xFFFF
+	glog.V(3).Infof("Handle for SetDiskQuota:Pid=>%d(c32:%d) Name=>%s Storage=>%d", pid, projid, containerName, storage)
+	// set /etc/projects file
+	if err := util.ChangeXFSProject("/etc/projects", fmt.Sprintf("%d:%s", projid, quotaPath), fmt.Sprintf("^%d:", projid)); err != nil {
+		return err
+	}
+	// set /etc/projid file
+	if err := util.ChangeXFSProject("/etc/projid", fmt.Sprintf("%s-%d:%d", containerName, projid, projid), fmt.Sprintf(":%d$", projid)); err != nil {
+		return err
+	}
+	// xfs_quota
+	if _, err := exec.Command("xfs_quota", "-x", "-c", fmt.Sprintf("project -s %s-%d", containerName, projid), "/data").CombinedOutput(); err != nil {
+		return err
+	}
+	if _, err := exec.Command("xfs_quota", "-x", "-c", fmt.Sprintf("limit -p bhard=%dg %s-%d", storage, containerName, projid), "/data").CombinedOutput(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (dm *realDiskSpaceManager) DeleteDiskQuota(pid int, containerName string) error {
+	dm.lock.Lock()
+	defer dm.lock.Unlock()
+	projid := pid % 0xFFFF
+	glog.V(3).Infof("Handle for CleanDiskQuota:Pid=>%d(c32:%d) Name=>%s", pid, projid, containerName)
+	cmd := exec.Command("xfs_quota", "-x", "-c", fmt.Sprintf("project -C %s-%d", containerName, projid), "/data")
+	stderr := bytes.NewBuffer(nil)
+	cmd.Stderr = stderr
+	if err := cmd.Run(); err != nil {
+		errStr := string(stderr.Bytes())
+		glog.V(3).Infof("Exec Command failed,stderr: %s", errStr)
+		if strings.Contains(errStr, "doesn't exist") || strings.Contains(errStr, "no such ") {
+			return nil
+		}
+		return err
+	}
+	// set /etc/projects file
+	if err := util.ChangeXFSProject("/etc/projects", "", fmt.Sprintf("^%d:", projid)); err != nil {
+		return err
+	}
+	// set /etc/projid file
+	if err := util.ChangeXFSProject("/etc/projid", "", fmt.Sprintf(":%d$", projid)); err != nil {
+		return err
 	}
 	return nil
 }

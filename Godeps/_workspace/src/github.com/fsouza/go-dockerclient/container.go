@@ -306,6 +306,14 @@ type Container struct {
 	RestartCount int `json:"RestartCount,omitempty" yaml:"RestartCount,omitempty"`
 
 	AppArmorProfile string `json:"AppArmorProfile,omitempty" yaml:"AppArmorProfile,omitempty"`
+	GraphDriver     GraphDriverData
+}
+
+// GraphDriverData returns Image's graph driver config info
+// when calling inspect command
+type GraphDriverData struct {
+	Name string
+	Data map[string]string
 }
 
 // RenameContainerOptions specify parameters to the RenameContainer function.

@@ -1250,14 +1250,14 @@ func makeMounts(pod *api.Pod, podDir string, container *api.Container, hostName,
 			vol.SELinuxLabeled = true
 			relabelVolume = true
 		}
-		hostPath := vol.Builder.GetPath() 
+		hostPath := vol.Builder.GetPath()
 		if mount.SubPath != "" {
 			hostPath = filepath.Join(hostPath, mount.SubPath)
 		}
 		mounts = append(mounts, kubecontainer.Mount{
 			Name:           mount.Name,
 			ContainerPath:  mount.MountPath,
-			HostPath:       hostPath, 
+			HostPath:       hostPath,
 			ReadOnly:       mount.ReadOnly,
 			SELinuxRelabel: relabelVolume,
 		})
@@ -3765,10 +3765,13 @@ func (kl *Kubelet) RestartContainer(pod *api.Pod, containerName, options string)
 	case "stop":
 		return kl.killPod(pod, nil, podStatus)
 	case "start":
-		for _, container := range podStatus.ContainerStatuses {
-			if err = kl.containerRuntime.StartContainerByID(container.ID); err != nil {
-				glog.Errorf("Failed to %s container %s_%s(%s)", options, container.Name, pod.Namespace, container.ID.ID)
-				return err
+		for _, container := range pod.Spec.Containers {
+			containerStatus := podStatus.FindContainerStatusByName(container.Name)
+			if containerStatus != nil {
+				if err = kl.containerRuntime.StartContainerByID(&container, containerStatus); err != nil {
+					glog.Errorf("Failed to %s container %s_%s(%s)", options, container.Name, pod.Namespace, containerStatus.ID.ID)
+					return err
+				}
 			}
 		}
 	default:
@@ -3776,4 +3779,12 @@ func (kl *Kubelet) RestartContainer(pod *api.Pod, containerName, options string)
 	}
 
 	return nil
+}
+
+func (kl *Kubelet) SetupContainerDiskQuota(pid int, containerName, quotaPath string, storage int64) error {
+	return kl.diskSpaceManager.SetDiskQuota(pid, containerName, quotaPath, storage)
+}
+
+func (kl *Kubelet) CleanupContainerDiskQuota(pid int, containerName string) error {
+	return kl.diskSpaceManager.DeleteDiskQuota(pid, containerName)
 }

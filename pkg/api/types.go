@@ -1807,6 +1807,8 @@ const (
 	ResourceMemory ResourceName = "memory"
 	// Volume size, in bytes (e,g. 5Gi = 5GiB = 5 * 1024 * 1024 * 1024)
 	ResourceStorage ResourceName = "storage"
+	// RootFs size, in bytes (e,g. 5Gi = 5GiB = 5 * 1024 * 1024 * 1024)
+	ResourceRootFsStorage ResourceName = "rootFsStorage"
 	// Number of Pods that may be running on this Node: see ResourcePods
 )
 

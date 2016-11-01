@@ -85,6 +85,10 @@ func GetPodNamespace(labels map[string]string) string {
 
 func newLabels(container *api.Container, pod *api.Pod, restartCount int, enableCustomMetrics bool) map[string]string {
 	labels := map[string]string{}
+	// copy pod labels to newLabels
+	if pod.Labels != nil {
+		labels = pod.Labels
+	}
 	labels[kubernetesPodNameLabel] = pod.Name
 	labels[kubernetesPodNamespaceLabel] = pod.Namespace
 	labels[kubernetesPodUIDLabel] = string(pod.UID)
