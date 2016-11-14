@@ -138,8 +138,7 @@ func (r *Mock) GarbageCollect(gcPolicy ContainerGCPolicy) error {
 	return args.Error(0)
 }
 
-func (r *Mock) StartContainerByID(containerID ContainerID) error {
-	args := r.Called(containerID)
+func (r *Mock) StartContainerByID(container *api.Container, containerStatus *ContainerStatus) error {
+	args := r.Called(container, containerStatus)
 	return args.Error(0)
 }
-

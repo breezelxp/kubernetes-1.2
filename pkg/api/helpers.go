@@ -119,6 +119,8 @@ func IsResourceQuotaScopeValidForResource(scope ResourceQuotaScope, resource str
 var standardContainerResources = sets.NewString(
 	string(ResourceCPU),
 	string(ResourceMemory),
+	string(ResourceStorage),
+	string(ResourceRootFsStorage),
 )
 
 // IsStandardContainerResourceName returns true if the container can make a resource request

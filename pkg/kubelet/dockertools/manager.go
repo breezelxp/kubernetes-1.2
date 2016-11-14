@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -85,6 +86,9 @@ const (
 	// Remote API version for docker daemon version v1.10
 	// https://docs.docker.com/engine/reference/api/docker_remote_api/
 	dockerV110APIVersion = "1.22"
+
+	// Storage Driver
+	storageDriverOverlay = "overlay"
 )
 
 var (
@@ -1487,6 +1491,12 @@ func (dm *DockerManager) killContainer(containerID kubecontainer.ContainerID, co
 	if gracePeriod < minimumGracePeriodInSeconds {
 		gracePeriod = minimumGracePeriodInSeconds
 	}
+	if container != nil && container.Name != PodInfraContainerName {
+		glog.V(3).Infof("Test cleanup pod relatedinfo: %s, %v", containerID, container)
+		if err := dm.cleanupPodRelatedInfo(containerID, container); err != nil {
+			return err
+		}
+	}
 	err := dm.client.StopContainer(ID, uint(gracePeriod))
 	if _, ok := err.(*docker.ContainerNotRunning); ok && err != nil {
 		glog.V(4).Infof("Container %q has already exited", name)
@@ -1659,6 +1669,13 @@ func (dm *DockerManager) runContainerInPod(pod *api.Pod, container *api.Containe
 			return kubecontainer.ContainerID{}, fmt.Errorf("addNDotsOption: %v", err)
 		}
 	}
+	// The setupPodRelatedInfo is used to set the container quotas(disk) \ bufferedIO throttle
+	if container.Name != PodInfraContainerName {
+		err = dm.setupPodRelatedInfo(container, containerInfo)
+		if err != nil {
+			return kubecontainer.ContainerID{}, fmt.Errorf("setupPodRelatedInfo: %v", err)
+		}
+	}
 
 	return id, err
 }
@@ -1691,6 +1708,41 @@ func appendToFile(filePath, stringToAppend string) error {
 
 	_, err = f.WriteString(stringToAppend)
 	return err
+}
+
+func (dm *DockerManager) setupPodRelatedInfo(container *api.Container, containerInfo *docker.Container) error {
+	// set overlayfs rootfs quota
+	if containerInfo.Driver == storageDriverOverlay {
+		var containerQuotaPath string
+		mergedDir, ok := containerInfo.GraphDriver.Data["MergedDir"]
+		if !ok {
+			containerQuotaPath = path.Join(dm.dockerRoot, "overlay", containerInfo.ID)
+		} else {
+			containerQuotaPath = filepath.Dir(mergedDir)
+		}
+		if _, err := os.Stat(containerQuotaPath); os.IsNotExist(err) {
+			return err
+		}
+		rootFsStorage := container.Resources.Limits[api.ResourceName(api.ResourceRootFsStorage)]
+		glog.V(3).Infof("Setup rootfs quota on dir: %s [%v GB]", containerQuotaPath, rootFsStorage.Value()/(1024*1024*1024))
+		if err := dm.runtimeHelper.SetupContainerDiskQuota(containerInfo.State.Pid, container.Name, containerQuotaPath, int64(rootFsStorage.Value()/(1024*1024*1024))); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (dm *DockerManager) cleanupPodRelatedInfo(containerID kubecontainer.ContainerID, container *api.Container) error {
+	containerInfo, err := dm.client.InspectContainer(containerID.ID)
+	if err != nil {
+		return err
+	}
+	if containerInfo.Driver == storageDriverOverlay {
+		if err := dm.runtimeHelper.CleanupContainerDiskQuota(containerInfo.State.Pid, container.Name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // createPodInfraContainer starts the pod infra container for a pod. Returns the docker container ID of the newly created container.
@@ -2484,20 +2536,31 @@ func TgwDel(pod *api.Pod) bool {
 	return true
 }
 
-func (dm *DockerManager) StartContainerByID(containerID kubecontainer.ContainerID) error {
-	container, err := dm.client.InspectContainer(containerID.ID)
+func (dm *DockerManager) StartContainerByID(container *api.Container, containerStatus *kubecontainer.ContainerStatus) error {
+	containerInfo, err := dm.client.InspectContainer(containerStatus.ID.ID)
 	if err != nil {
 		return err
 	}
-	if container.State.Running {
-		glog.V(3).Infof("Container %s is running, skiped.", container.Name)
+	if containerInfo.State.Running {
+		glog.V(3).Infof("Container %s is running, skiped.", containerInfo.Name)
 		return nil
 	}
 	//ref, _ := dm.containerRefManager.GetRef(containerID)
-	if err := dm.client.StartContainer(containerID.ID, nil); err != nil {
+	if err := dm.client.StartContainer(containerStatus.ID.ID, nil); err != nil {
 		//	dm.recorder.Eventf(ref, api.EventTypeWarning, kubecontainer.FailedToStartContainer,
 		//		"Failed to start container with docker id %v with error: %v", utilstrings.ShortenString(containerID.ID, 12), err)
 		return err
+	}
+	// The setupPodRelatedInfo is used to set the container quotas(disk) \ bufferedIO throttle
+	containerInfo, err = dm.client.InspectContainer(containerStatus.ID.ID)
+	if err != nil {
+		return err
+	}
+	if container.Name != PodInfraContainerName {
+		err = dm.setupPodRelatedInfo(container, containerInfo)
+		if err != nil {
+			return fmt.Errorf("setupPodRelatedInfo: %v", err)
+		}
 	}
 	//dm.recorder.Eventf(ref, api.EventTypeNormal, kubecontainer.StartedContainer, "Started container with docker id %v", utilstrings.ShortenString(containerID.ID, 12))
 	return nil

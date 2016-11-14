@@ -354,7 +354,7 @@ func (f *FakeRuntime) GarbageCollect(gcPolicy ContainerGCPolicy) error {
 	return f.Err
 }
 
-func (f *FakeRuntime) StartContainerByID(containerID ContainerID) error {
+func (f *FakeRuntime) StartContainerByID(container *api.Container, containerStatus *ContainerStatus) error {
 	f.Lock()
 	defer f.Unlock()
 
