@@ -246,6 +246,14 @@ func deepCopy_v1_Container(in v1.Container, out *v1.Container, c *conversion.Clo
 	out.Stdin = in.Stdin
 	out.StdinOnce = in.StdinOnce
 	out.TTY = in.TTY
+	if in.ExtraHosts != nil {
+		out.ExtraHosts = make(map[string]string)
+		for key, val := range in.ExtraHosts {
+			out.ExtraHosts[key] = val
+		}
+	} else {
+		out.ExtraHosts = nil
+	}
 	return nil
 }
 
