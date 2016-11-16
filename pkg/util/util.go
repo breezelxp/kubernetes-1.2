@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"bufio"
 	"fmt"
 	"math"
 	"os"
@@ -155,4 +156,38 @@ func HexCpuSet(cpuSet string) (string, error) {
 	}
 
 	return strconv.FormatUint(value, 16), nil
+}
+
+func ChangeXFSProject(filtPath, stringToAppend, filter string) error {
+	var lines []string
+	rf, err := os.OpenFile(filtPath, os.O_RDONLY|os.O_CREATE, 0600)
+	defer rf.Close()
+	if err != nil {
+		return err
+	}
+	buf := bufio.NewReader(rf)
+	for {
+		line, _ := buf.ReadString('\n')
+		line = strings.Trim(line, "\r\n")
+		if line == "" {
+			break
+		}
+		if ok, _ := regexp.MatchString(filter, line); !ok {
+			lines = append(lines, line)
+		}
+	}
+	if stringToAppend != "" {
+		lines = append(lines, stringToAppend)
+	}
+	wf, err := os.OpenFile(filtPath, os.O_WRONLY|os.O_TRUNC|os.O_SYNC, 0600)
+	defer wf.Close()
+	if err != nil {
+		return err
+	}
+	_, err = wf.WriteString(strings.Join(lines, "\n"))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

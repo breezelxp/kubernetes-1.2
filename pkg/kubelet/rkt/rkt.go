@@ -1483,6 +1483,6 @@ func (r *Runtime) GetPodStatus(uid types.UID, name, namespace string) (*kubecont
 	return podStatus, nil
 }
 
-func (r *Runtime) StartContainerByID(containerID kubecontainer.ContainerID) error {
+func (r *Runtime) StartContainerByID(container *api.Container,containerStatus *kubecontainer.ContainerStatus) error {
 	return nil
 }
