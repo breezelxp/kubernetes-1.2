@@ -560,11 +560,13 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 		}
 
 		// Now for the actual metrics
-		stats := container.Stats[0]
-		for _, cm := range c.containerMetrics {
-			desc := cm.desc(baseLabels)
-			for _, metricValue := range cm.getValues(stats) {
-				ch <- prometheus.MustNewConstMetric(desc, cm.valueType, float64(metricValue.value), append(baseLabelValues, metricValue.labels...)...)
+		if container != nil && len(container.Stats) > 0 {
+			stats := container.Stats[0]
+			for _, cm := range c.containerMetrics {
+				desc := cm.desc(baseLabels)
+				for _, metricValue := range cm.getValues(stats) {
+					ch <- prometheus.MustNewConstMetric(desc, cm.valueType, float64(metricValue.value), append(baseLabelValues, metricValue.labels...)...)
+				}
 			}
 		}
 	}
