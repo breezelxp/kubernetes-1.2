@@ -710,6 +710,15 @@ func (NFSVolumeSource) SwaggerDoc() map[string]string {
 	return map_NFSVolumeSource
 }
 
+var map_NUMAInfo = map[string]string{
+	"nodes":       "Available node number",
+	"topological": "Numa distribution type e,g. 0 => Horizontal distribution\n\t\t1 => vertical distribution",
+}
+
+func (NUMAInfo) SwaggerDoc() map[string]string {
+	return map_NUMAInfo
+}
+
 var map_Namespace = map[string]string{
 	"":         "Namespace provides a scope for Names. Use of multiple namespaces is optional.",
 	"metadata": "Standard object's metadata. More info: http://releases.k8s.io/release-1.2/docs/devel/api-conventions.md#metadata",
@@ -749,11 +758,27 @@ func (NamespaceStatus) SwaggerDoc() map[string]string {
 	return map_NamespaceStatus
 }
 
+var map_Network = map[string]string{
+	"":           "Network for Pod",
+	"mode":       "Mode: host, nat, bridge, none",
+	"macAddress": "MacAddress contains the MAC address to set on the network interface",
+	"address":    "Address contains the IPv4 and mask to set on the network interface",
+	"gateway":    "Gateway sets the gateway address that is used as the default for the interface",
+	"vfID":       "SRIOV VF ID",
+	"vlanID":     "VLAN ID",
+	"subnet":     "Subnet",
+}
+
+func (Network) SwaggerDoc() map[string]string {
+	return map_Network
+}
+
 var map_Node = map[string]string{
 	"":         "Node is a worker node in Kubernetes, formerly known as minion. Each node will have a unique identifier in the cache (i.e. in etcd).",
 	"metadata": "Standard object's metadata. More info: http://releases.k8s.io/release-1.2/docs/devel/api-conventions.md#metadata",
 	"spec":     "Spec defines the behavior of a node. http://releases.k8s.io/release-1.2/docs/devel/api-conventions.md#spec-and-status",
 	"status":   "Most recently observed status of the node. Populated by the system. Read-only. More info: http://releases.k8s.io/release-1.2/docs/devel/api-conventions.md#spec-and-status",
+	"vms":      "vm infomation",
 }
 
 func (Node) SwaggerDoc() map[string]string {
@@ -889,6 +914,7 @@ var map_NodeSystemInfo = map[string]string{
 	"containerRuntimeVersion": "ContainerRuntime Version reported by the node through runtime remote API (e.g. docker://1.5.0).",
 	"kubeletVersion":          "Kubelet Version reported by the node.",
 	"kubeProxyVersion":        "KubeProxy Version reported by the node.",
+	"numaInfo":                "NUMA info reported by the node",
 }
 
 func (NodeSystemInfo) SwaggerDoc() map[string]string {
@@ -1175,6 +1201,7 @@ var map_PodSpec = map[string]string{
 	"hostIPC":                       "Use the host's ipc namespace. Optional: Default to false.",
 	"securityContext":               "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
 	"imagePullSecrets":              "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: http://releases.k8s.io/release-1.2/docs/user-guide/images.md#specifying-imagepullsecrets-on-a-pod",
+	"networkMode":                   "Custom network setting. e,g. flannel macvlan",
 }
 
 func (PodSpec) SwaggerDoc() map[string]string {
@@ -1191,6 +1218,8 @@ var map_PodStatus = map[string]string{
 	"podIP":             "IP address allocated to the pod. Routable at least within the cluster. Empty if not yet allocated.",
 	"startTime":         "RFC 3339 date and time at which the object was acknowledged by the Kubelet. This is before the Kubelet pulled the container image(s) for the pod.",
 	"containerStatuses": "The list has one entry per container in the manifest. Each entry is currently the output of `docker inspect`. More info: http://releases.k8s.io/release-1.2/docs/user-guide/pod-states.md#container-statuses",
+	"network":           "Network info",
+	"cpuSet":            "CPU set(\"1,3\")",
 }
 
 func (PodStatus) SwaggerDoc() map[string]string {
@@ -1553,6 +1582,21 @@ func (TCPSocketAction) SwaggerDoc() map[string]string {
 	return map_TCPSocketAction
 }
 
+var map_VM = map[string]string{
+	"":           "Inner vm info on host",
+	"assetID":    "Asset ID",
+	"address":    "Address contains the IPv4 and mask to set on the network interface",
+	"gateway":    "Gateway sets the gateway address that is used as the default for the interface",
+	"vfID":       "SRIOV VF ID",
+	"vlanID":     "VLAN ID",
+	"macAddress": "MacAddress contains the MAC address to set on the network interface",
+	"subnet":     "Subnet",
+}
+
+func (VM) SwaggerDoc() map[string]string {
+	return map_VM
+}
+
 var map_Volume = map[string]string{
 	"":     "Volume represents a named volume in a pod that may be accessed by any container in the pod.",
 	"name": "Volume's name. Must be a DNS_LABEL and unique within the pod. More info: http://releases.k8s.io/release-1.2/docs/user-guide/identifiers.md#names",
@@ -1567,6 +1611,7 @@ var map_VolumeMount = map[string]string{
 	"name":      "This must match the Name of a Volume.",
 	"readOnly":  "Mounted read-only if true, read-write otherwise (false or unspecified). Defaults to false.",
 	"mountPath": "Path within the container at which the volume should be mounted.  Must not contain ':'.",
+	"subPath":   "Path within the volume from which the container's volume should be mounted. Defaults to \"\" (volume's root).",
 }
 
 func (VolumeMount) SwaggerDoc() map[string]string {

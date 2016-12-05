@@ -500,6 +500,15 @@ func DeepCopy_api_Container(in Container, out *Container, c *conversion.Cloner) 
 	out.Stdin = in.Stdin
 	out.StdinOnce = in.StdinOnce
 	out.TTY = in.TTY
+	if in.ExtraHosts != nil {
+		in, out := in.ExtraHosts, &out.ExtraHosts
+		*out = make(map[string]string)
+		for key, val := range in {
+			(*out)[key] = val
+		}
+	} else {
+		out.ExtraHosts = nil
+	}
 	return nil
 }
 

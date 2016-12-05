@@ -1263,7 +1263,14 @@ func makeMounts(pod *api.Pod, podDir string, container *api.Container, hostName,
 		})
 	}
 	if mountEtcHostsFile {
-		hostsMount, err := makeHostsMount(podDir, podIP, hostName, hostDomain)
+		extraHosts := make(map[string]string)
+		for hosts, ip := range container.ExtraHosts {
+			extraHosts[hosts] = ip
+		}
+		if len(hostDomain) > 0 {
+			extraHosts[fmt.Sprintf("%s.%s", hostName, hostDomain)] = podIP
+		}
+		hostsMount, err := makeHostsMount(podDir, podIP, hostName, extraHosts)
 		if err != nil {
 			return nil, err
 		}
@@ -1272,9 +1279,9 @@ func makeMounts(pod *api.Pod, podDir string, container *api.Container, hostName,
 	return mounts, nil
 }
 
-func makeHostsMount(podDir, podIP, hostName, hostDomainName string) (*kubecontainer.Mount, error) {
+func makeHostsMount(podDir, podIP, hostName string, extraHosts map[string]string) (*kubecontainer.Mount, error) {
 	hostsFilePath := path.Join(podDir, "etc-hosts")
-	if err := ensureHostsFile(hostsFilePath, podIP, hostName, hostDomainName); err != nil {
+	if err := ensureHostsFile(hostsFilePath, podIP, hostName, extraHosts); err != nil {
 		return nil, err
 	}
 	return &kubecontainer.Mount{
@@ -1285,7 +1292,7 @@ func makeHostsMount(podDir, podIP, hostName, hostDomainName string) (*kubecontai
 	}, nil
 }
 
-func ensureHostsFile(fileName, hostIP, hostName, hostDomainName string) error {
+func ensureHostsFile(fileName, hostIP, hostName string, extraHosts map[string]string) error {
 	if _, err := os.Stat(fileName); os.IsExist(err) {
 		glog.V(4).Infof("kubernetes-managed etc-hosts file exits. Will not be recreated: %q", fileName)
 		return nil
@@ -1298,10 +1305,9 @@ func ensureHostsFile(fileName, hostIP, hostName, hostDomainName string) error {
 	buffer.WriteString("fe00::0\tip6-mcastprefix\n")
 	buffer.WriteString("fe00::1\tip6-allnodes\n")
 	buffer.WriteString("fe00::2\tip6-allrouters\n")
-	if len(hostDomainName) > 0 {
-		buffer.WriteString(fmt.Sprintf("%s\t%s.%s\t%s\n", hostIP, hostName, hostDomainName, hostName))
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s\t%s\n", hostIP, hostName))
+	buffer.WriteString(fmt.Sprintf("%s\t%s\n", hostIP, hostName))
+	for hosts, ip := range extraHosts {
+		buffer.WriteString(fmt.Sprintf("%s\t%s\n", ip, hosts))
 	}
 	return ioutil.WriteFile(fileName, buffer.Bytes(), 0644)
 }
