@@ -396,6 +396,14 @@ func autoConvert_api_Container_To_v1_Container(in *api.Container, out *Container
 	out.Stdin = in.Stdin
 	out.StdinOnce = in.StdinOnce
 	out.TTY = in.TTY
+	if in.ExtraHosts != nil {
+		out.ExtraHosts = make(map[string]string)
+		for key, val := range in.ExtraHosts {
+			out.ExtraHosts[key] = val
+		}
+	} else {
+		out.ExtraHosts = nil
+	}
 	return nil
 }
 
@@ -3773,6 +3781,14 @@ func autoConvert_v1_Container_To_api_Container(in *Container, out *api.Container
 	out.Stdin = in.Stdin
 	out.StdinOnce = in.StdinOnce
 	out.TTY = in.TTY
+	if in.ExtraHosts != nil {
+		out.ExtraHosts = make(map[string]string)
+		for key, val := range in.ExtraHosts {
+			out.ExtraHosts[key] = val
+		}
+	} else {
+		out.ExtraHosts = nil
+	}
 	return nil
 }
 
