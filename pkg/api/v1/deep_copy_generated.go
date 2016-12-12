@@ -1857,6 +1857,14 @@ func deepCopy_v1_PodSpec(in PodSpec, out *PodSpec, c *conversion.Cloner) error {
 		out.ImagePullSecrets = nil
 	}
 	out.NetworkMode = in.NetworkMode
+	if in.ShmSize != nil {
+		out.ShmSize = new(resource.Quantity)
+		if err := deepCopy_resource_Quantity(*in.ShmSize, out.ShmSize, c); err != nil {
+			return err
+		}
+	} else {
+		out.ShmSize = nil
+	}
 	return nil
 }
 

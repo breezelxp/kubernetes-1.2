@@ -1231,6 +1231,11 @@ type PodSpec struct {
 	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// Custom network setting. e,g. flannel macvlan
 	NetworkMode string `json:"networkMode,omitempty"`
+	//Optional: Docker "--shm-size" support. Defines the size of /dev/shm in the IPC namespace of the pod.
+	//If not defined here Docker uses a default value.
+	//Omitted if HostIPC is true.
+	//Cannot be updated
+	ShmSize *resource.Quantity `json:"shmSize,omitempty"`
 }
 
 // PodSecurityContext holds pod-level security attributes and common container settings.

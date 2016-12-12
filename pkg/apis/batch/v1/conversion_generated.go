@@ -858,6 +858,15 @@ func autoConvert_api_PodSpec_To_v1_PodSpec(in *api.PodSpec, out *v1.PodSpec, s c
 		out.ImagePullSecrets = nil
 	}
 	out.NetworkMode = in.NetworkMode
+	// unable to generate simple pointer conversion for resource.Quantity -> resource.Quantity
+	if in.ShmSize != nil {
+		out.ShmSize = new(resource.Quantity)
+		if err := api.Convert_resource_Quantity_To_resource_Quantity(in.ShmSize, out.ShmSize, s); err != nil {
+			return err
+		}
+	} else {
+		out.ShmSize = nil
+	}
 	return nil
 }
 
@@ -2170,6 +2179,15 @@ func autoConvert_v1_PodSpec_To_api_PodSpec(in *v1.PodSpec, out *api.PodSpec, s c
 		out.ImagePullSecrets = nil
 	}
 	out.NetworkMode = in.NetworkMode
+	// unable to generate simple pointer conversion for resource.Quantity -> resource.Quantity
+	if in.ShmSize != nil {
+		out.ShmSize = new(resource.Quantity)
+		if err := api.Convert_resource_Quantity_To_resource_Quantity(in.ShmSize, out.ShmSize, s); err != nil {
+			return err
+		}
+	} else {
+		out.ShmSize = nil
+	}
 	return nil
 }
 

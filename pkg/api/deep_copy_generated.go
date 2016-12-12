@@ -2221,6 +2221,17 @@ func DeepCopy_api_PodSpec(in PodSpec, out *PodSpec, c *conversion.Cloner) error 
 		out.ImagePullSecrets = nil
 	}
 	out.NetworkMode = in.NetworkMode
+	if in.ShmSize != nil {
+		in, out := in.ShmSize, &out.ShmSize
+		*out = new(resource.Quantity)
+		if newVal, err := c.DeepCopy(*in); err != nil {
+			return err
+		} else {
+			**out = newVal.(resource.Quantity)
+		}
+	} else {
+		out.ShmSize = nil
+	}
 	return nil
 }
 
