@@ -1202,6 +1202,7 @@ var map_PodSpec = map[string]string{
 	"securityContext":               "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
 	"imagePullSecrets":              "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: http://releases.k8s.io/release-1.2/docs/user-guide/images.md#specifying-imagepullsecrets-on-a-pod",
 	"networkMode":                   "Custom network setting. e,g. flannel macvlan",
+	"shmSize":                       "Optional: Docker \"--shm-size\" support. Defines the size of /dev/shm in the IPC namespace of the pod. If not defined here Docker uses a default value. Omitted if HostIPC is true. Cannot be updated",
 }
 
 func (PodSpec) SwaggerDoc() map[string]string {

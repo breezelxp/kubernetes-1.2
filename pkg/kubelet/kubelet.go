@@ -3771,14 +3771,22 @@ func (kl *Kubelet) RestartContainer(pod *api.Pod, containerName, options string)
 	case "stop":
 		return kl.killPod(pod, nil, podStatus)
 	case "start":
+		var result kubecontainer.PodSyncResult
 		for _, container := range pod.Spec.Containers {
+			startContainerResult := kubecontainer.NewSyncResult(kubecontainer.StartContainer, container.Name)
+			result.AddSyncResult(startContainerResult)
 			containerStatus := podStatus.FindContainerStatusByName(container.Name)
 			if containerStatus != nil {
 				if err = kl.containerRuntime.StartContainerByID(&container, containerStatus); err != nil {
-					glog.Errorf("Failed to %s container %s_%s(%s)", options, container.Name, pod.Namespace, containerStatus.ID.ID)
-					return err
+					startContainerResult.Fail(err, err.Error())
+					glog.Errorf("Failed to %s container %s_%s(%s): %v", options, container.Name, pod.Namespace, containerStatus.ID.ID, err)
+					break
 				}
 			}
+		}
+		kl.reasonCache.Update(pod.UID, result)
+		if err != nil {
+			return err
 		}
 	default:
 		return fmt.Errorf("unsupported container options %s specified", options)
