@@ -1268,9 +1268,11 @@ func makeMounts(pod *api.Pod, podDir string, container *api.Container, hostName,
 			extraHosts[hosts] = ip
 		}
 		if len(hostDomain) > 0 {
-			extraHosts[fmt.Sprintf("%s.%s", hostName, hostDomain)] = podIP
+			extraHosts[fmt.Sprintf("%s.%s %s", hostName, hostDomain, hostName)] = podIP
+		} else {
+			extraHosts[hostName] = podIP
 		}
-		hostsMount, err := makeHostsMount(podDir, podIP, hostName, extraHosts)
+		hostsMount, err := makeHostsMount(podDir, extraHosts)
 		if err != nil {
 			return nil, err
 		}
@@ -1279,9 +1281,9 @@ func makeMounts(pod *api.Pod, podDir string, container *api.Container, hostName,
 	return mounts, nil
 }
 
-func makeHostsMount(podDir, podIP, hostName string, extraHosts map[string]string) (*kubecontainer.Mount, error) {
+func makeHostsMount(podDir string, extraHosts map[string]string) (*kubecontainer.Mount, error) {
 	hostsFilePath := path.Join(podDir, "etc-hosts")
-	if err := ensureHostsFile(hostsFilePath, podIP, hostName, extraHosts); err != nil {
+	if err := ensureHostsFile(hostsFilePath, extraHosts); err != nil {
 		return nil, err
 	}
 	return &kubecontainer.Mount{
@@ -1292,7 +1294,7 @@ func makeHostsMount(podDir, podIP, hostName string, extraHosts map[string]string
 	}, nil
 }
 
-func ensureHostsFile(fileName, hostIP, hostName string, extraHosts map[string]string) error {
+func ensureHostsFile(fileName string, extraHosts map[string]string) error {
 	if _, err := os.Stat(fileName); os.IsExist(err) {
 		glog.V(4).Infof("kubernetes-managed etc-hosts file exits. Will not be recreated: %q", fileName)
 		return nil
@@ -1305,7 +1307,7 @@ func ensureHostsFile(fileName, hostIP, hostName string, extraHosts map[string]st
 	buffer.WriteString("fe00::0\tip6-mcastprefix\n")
 	buffer.WriteString("fe00::1\tip6-allnodes\n")
 	buffer.WriteString("fe00::2\tip6-allrouters\n")
-	buffer.WriteString(fmt.Sprintf("%s\t%s\n", hostIP, hostName))
+	//	buffer.WriteString(fmt.Sprintf("%s\t%s\n", hostIP, hostName))
 	for hosts, ip := range extraHosts {
 		buffer.WriteString(fmt.Sprintf("%s\t%s\n", ip, hosts))
 	}
