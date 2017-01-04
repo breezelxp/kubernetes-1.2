@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/runtime"
 	"speter.net/go/exp/math/dec/inf"
@@ -339,6 +340,14 @@ func Convert_api_PodSpec_To_v1_PodSpec(in *api.PodSpec, out *PodSpec, s conversi
 		out.ImagePullSecrets = nil
 	}
 	out.NetworkMode = in.NetworkMode
+	if in.ShmSize != nil {
+		out.ShmSize = new(resource.Quantity)
+		if err := api.Convert_resource_Quantity_To_resource_Quantity(in.ShmSize, out.ShmSize, s); err != nil {
+			return err
+		}
+	} else {
+		out.ShmSize = nil
+	}
 	return nil
 }
 
@@ -421,6 +430,14 @@ func Convert_v1_PodSpec_To_api_PodSpec(in *PodSpec, out *api.PodSpec, s conversi
 		out.ImagePullSecrets = nil
 	}
 	out.NetworkMode = in.NetworkMode
+	if in.ShmSize != nil {
+		out.ShmSize = new(resource.Quantity)
+		if err := api.Convert_resource_Quantity_To_resource_Quantity(in.ShmSize, out.ShmSize, s); err != nil {
+			return err
+		}
+	} else {
+		out.ShmSize = nil
+	}
 	return nil
 }
 

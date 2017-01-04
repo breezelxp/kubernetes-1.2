@@ -1433,6 +1433,7 @@ func ValidatePodSpec(spec *api.PodSpec, fldPath *field.Path) field.ErrorList {
 	allErrs = append(allErrs, ValidateLabels(spec.NodeSelector, fldPath.Child("nodeSelector"))...)
 	allErrs = append(allErrs, ValidatePodSecurityContext(spec.SecurityContext, spec, fldPath, fldPath.Child("securityContext"))...)
 	allErrs = append(allErrs, validateImagePullSecrets(spec.ImagePullSecrets, fldPath.Child("imagePullSecrets"))...)
+	allErrs = append(allErrs, ValidateShmSize(spec.ShmSize, fldPath.Child("shmSize"))...)
 	if len(spec.ServiceAccountName) > 0 {
 		if ok, msg := ValidateServiceAccountName(spec.ServiceAccountName, false); !ok {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("serviceAccountName"), spec.ServiceAccountName, msg))
@@ -2771,4 +2772,13 @@ func isValidHostnamesMap(serializedPodHostNames string) bool {
 		}
 	}
 	return true
+}
+
+// ValidateShmSize tests the shmSize field of Pod
+func ValidateShmSize(shmSize *resource.Quantity, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if shmSize != nil && !(shmSize.Cmp(resource.Quantity{}) > 0) {
+		allErrs = append(allErrs, field.Invalid(fldPath, shmSize.Value(), "must be greater than 0"))
+	}
+	return allErrs
 }

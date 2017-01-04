@@ -36,6 +36,7 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	docker "github.com/fsouza/go-dockerclient"
+//	"k8s.io/kubernetes/pkg/api/resource"
 	"github.com/golang/glog"
 	cadvisorapi "github.com/google/cadvisor/info/v1"
 	"k8s.io/kubernetes/pkg/api"
@@ -700,6 +701,14 @@ func (dm *DockerManager) runContainer(
 	// Set network configuration for infra-container
 	if container.Name == PodInfraContainerName {
 		setInfraContainerNetworkConfig(pod, netMode, opts, dockerOpts)
+	}
+
+	//Set IPC Shm size for the infra-container as this IPC Shm is used by
+	//all containers in the pod
+	if container.Name == PodInfraContainerName {
+		if pod.Spec.ShmSize != nil && !pod.Spec.SecurityContext.HostIPC {
+			hc.ShmSize = pod.Spec.ShmSize.Value()
+		}
 	}
 
 	setEntrypointAndCommand(container, opts, &dockerOpts)

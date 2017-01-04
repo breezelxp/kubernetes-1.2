@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"golang.org/x/crypto/ssh/terminal"
 	clientauth "k8s.io/kubernetes/pkg/client/unversioned/auth"
 )
 
@@ -68,9 +69,45 @@ func (a *PromptingAuthLoader) LoadAuth(path string) (*clientauth.Info, error) {
 func (a *PromptingAuthLoader) Prompt() *clientauth.Info {
 	auth := &clientauth.Info{}
 	auth.User = promptForString("Username", a.reader)
-	auth.Password = promptForString("Password", a.reader)
-
+	auth.Password = getPasswd(a.reader)
 	return auth
+}
+
+func getPasswd(r io.Reader) string {
+	var pass []byte
+
+	if r == os.Stdin {
+		fmt.Printf("Please enter Password: ")
+		if oldState, err := terminal.MakeRaw(int(os.Stdin.Fd())); err != nil {
+			return ""
+		} else {
+			defer func() {
+				terminal.Restore(int(os.Stdin.Fd()), oldState)
+				fmt.Println()
+			}()
+		}
+	} else {
+		return promptForString("Password", r)
+	}
+	for {
+		buf := make([]byte, 1)
+		if n, err := os.Stdin.Read(buf); n == 0 || err != nil {
+			return ""
+		}
+		if buf[0] == 127 || buf[0] == 8 {
+			if l := len(pass); l > 0 {
+				pass = pass[:l-1]
+			}
+		} else if buf[0] == 13 || buf[0] == 10 {
+			break
+		} else if buf[0] == 3 {
+			break
+		} else if buf[0] != 0 {
+			pass = append(pass, buf[0])
+		}
+	}
+
+	return string(pass)
 }
 
 func promptForString(field string, r io.Reader) string {
