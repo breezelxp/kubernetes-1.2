@@ -491,6 +491,12 @@ func Run(s *options.APIServer) error {
 		return err
 	}
 
+	//start heart report
+	heartReportor := &apiserver.HeartReportor{
+		BcsApi: s.BcsApiHost,
+	}
+	heartReportor.StartReport(s.AdvertiseAddress.String(), s.InsecurePort)
+
 	m.Run(s.ServerRunOptions)
 	return nil
 }
