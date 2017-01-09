@@ -71,7 +71,8 @@ func New(backendStorageName string, port uint) (Interface, error) {
 	}
 
 	// Create and start the cAdvisor container manager.
-	m, err := manager.New(memory.New(statsCacheDuration, backendStorage), sysFs, maxHousekeepingInterval, allowDynamicHousekeeping, cadvisorMetrics.MetricSet{cadvisorMetrics.NetworkTcpUsageMetrics: struct{}{}})
+	//m, err := manager.New(memory.New(statsCacheDuration, backendStorage), sysFs, maxHousekeepingInterval, allowDynamicHousekeeping, cadvisorMetrics.MetricSet{cadvisorMetrics.NetworkTcpUsageMetrics: struct{}{}})
+	m, err := manager.New(memory.New(statsCacheDuration, backendStorage), sysFs, maxHousekeepingInterval, allowDynamicHousekeeping, cadvisorMetrics.MetricSet{})
 	if err != nil {
 		return nil, err
 	}
