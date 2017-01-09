@@ -941,9 +941,10 @@ type Container struct {
 
 	// Variables for interactive containers, these have very specialized use-cases (e.g. debugging)
 	// and shouldn't be used for general purpose containers.
-	Stdin     bool `json:"stdin,omitempty"`
-	StdinOnce bool `json:"stdinOnce,omitempty"`
-	TTY       bool `json:"tty,omitempty"`
+	Stdin      bool              `json:"stdin,omitempty"`
+	StdinOnce  bool              `json:"stdinOnce,omitempty"`
+	TTY        bool              `json:"tty,omitempty"`
+	ExtraHosts map[string]string `json:"extraHosts,omitempty"`
 }
 
 // Handler defines a specific action that should be taken
@@ -1228,8 +1229,13 @@ type PodSpec struct {
 	// If specified, these secrets will be passed to individual puller implementations for them to use.  For example,
 	// in the case of docker, only DockerConfig type secrets are honored.
 	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	// Custom network setting. e,g. flannel\macvlan
+	// Custom network setting. e,g. flannel macvlan
 	NetworkMode string `json:"networkMode,omitempty"`
+	//Optional: Docker "--shm-size" support. Defines the size of /dev/shm in the IPC namespace of the pod.
+	//If not defined here Docker uses a default value.
+	//Omitted if HostIPC is true.
+	//Cannot be updated
+	ShmSize *resource.Quantity `json:"shmSize,omitempty"`
 }
 
 // PodSecurityContext holds pod-level security attributes and common container settings.
@@ -2579,7 +2585,7 @@ type VM struct {
 	VlanID int `json:"vlanID,omitempty"`
 	// MacAddress contains the MAC address to set on the network interface
 	MacAddress string `json:"macAddress,omitempty"`
-    // Subnet
+	// Subnet
 	Subnet string `json:"subnet,omitempty"`
 }
 
@@ -2606,7 +2612,7 @@ type Network struct {
 	VfID int `json:"vfID"`
 	// VLAN ID
 	VlanID int `json:"vlanID,omitempty"`
-    // Subnet
+	// Subnet
 	Subnet string `json:"subnet,omitempty"`
 }
 

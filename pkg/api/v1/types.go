@@ -870,8 +870,8 @@ type VolumeMount struct {
 	// not contain ':'.
 	MountPath string `json:"mountPath"`
 	// Path within the volume from which the container's volume should be mounted.
- 	// Defaults to "" (volume's root).
- 	SubPath string `json:"subPath,omitempty" protobuf:"bytes,4,opt,name=subPath"`
+	// Defaults to "" (volume's root).
+	SubPath string `json:"subPath,omitempty" protobuf:"bytes,4,opt,name=subPath"`
 }
 
 // EnvVar represents an environment variable present in a Container.
@@ -1141,7 +1141,8 @@ type Container struct {
 	StdinOnce bool `json:"stdinOnce,omitempty"`
 	// Whether this container should allocate a TTY for itself, also requires 'stdin' to be true.
 	// Default is false.
-	TTY bool `json:"tty,omitempty"`
+	TTY        bool              `json:"tty,omitempty"`
+	ExtraHosts map[string]string `json:"extraHosts,omitempty"`
 }
 
 // Handler defines a specific action that should be taken
@@ -1493,8 +1494,13 @@ type PodSpec struct {
 	// in the case of docker, only DockerConfig type secrets are honored.
 	// More info: http://releases.k8s.io/release-1.2/docs/user-guide/images.md#specifying-imagepullsecrets-on-a-pod
 	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
-	// Custom network setting. e,g. flannel\macvlan
+	// Custom network setting. e,g. flannel macvlan
 	NetworkMode string `json:"networkMode,omitempty"`
+	//Optional: Docker "--shm-size" support. Defines the size of /dev/shm in the IPC namespace of the pod.
+	//If not defined here Docker uses a default value.
+	//Omitted if HostIPC is true.
+	//Cannot be updated
+	ShmSize *resource.Quantity `json:"shmSize,omitempty"`
 }
 
 // PodSecurityContext holds pod-level security attributes and common container settings.

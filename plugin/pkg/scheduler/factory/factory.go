@@ -107,7 +107,7 @@ func NewConfigFactory(client *client.Client, schedulerName string) *ConfigFactor
 	// ScheduledPodLister is something we provide to plug in functions that
 	// they may need to call.
 	c.ScheduledPodLister.Store, c.scheduledPodPopulator = framework.NewInformer(
-		c.createAssignedNonTerminatedPodLW(),
+		c.createAssignedPodLW(),
 		&api.Pod{},
 		0,
 		framework.ResourceEventHandlerFuncs{
@@ -312,6 +312,11 @@ func (factory *ConfigFactory) createUnassignedNonTerminatedPodLW() *cache.ListWa
 // TODO: return a ListerWatcher interface instead?
 func (factory *ConfigFactory) createAssignedNonTerminatedPodLW() *cache.ListWatch {
 	selector := fields.ParseSelectorOrDie("spec.nodeName!=" + "" + ",status.phase!=" + string(api.PodSucceeded) + ",status.phase!=" + string(api.PodFailed))
+	return cache.NewListWatchFromClient(factory.Client, "pods", api.NamespaceAll, selector)
+}
+
+func (factory *ConfigFactory) createAssignedPodLW() *cache.ListWatch {
+	selector := fields.ParseSelectorOrDie("spec.nodeName!=" + "")
 	return cache.NewListWatchFromClient(factory.Client, "pods", api.NamespaceAll, selector)
 }
 

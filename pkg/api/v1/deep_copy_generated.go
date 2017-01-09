@@ -349,6 +349,14 @@ func deepCopy_v1_Container(in Container, out *Container, c *conversion.Cloner) e
 	out.Stdin = in.Stdin
 	out.StdinOnce = in.StdinOnce
 	out.TTY = in.TTY
+	if in.ExtraHosts != nil {
+		out.ExtraHosts = make(map[string]string)
+		for key, val := range in.ExtraHosts {
+			out.ExtraHosts[key] = val
+		}
+	} else {
+		out.ExtraHosts = nil
+	}
 	return nil
 }
 
@@ -1849,6 +1857,14 @@ func deepCopy_v1_PodSpec(in PodSpec, out *PodSpec, c *conversion.Cloner) error {
 		out.ImagePullSecrets = nil
 	}
 	out.NetworkMode = in.NetworkMode
+	if in.ShmSize != nil {
+		out.ShmSize = new(resource.Quantity)
+		if err := deepCopy_resource_Quantity(*in.ShmSize, out.ShmSize, c); err != nil {
+			return err
+		}
+	} else {
+		out.ShmSize = nil
+	}
 	return nil
 }
 
