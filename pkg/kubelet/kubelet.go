@@ -1653,8 +1653,85 @@ func (kl *Kubelet) makeEnvironmentVariables(pod *api.Pod, container *api.Contain
 	for k, v := range serviceEnv {
 		result = append(result, kubecontainer.EnvVar{Name: k, Value: v})
 	}
+	hostip, err := getHostIP()
+	if nil != err {
+		return result, fmt.Errorf("get host ip failed. Error: %v.", err)
+	}
+	result = append(result, kubecontainer.EnvVar{Name: "KUBE_HOST_IP_VALUE", Value: hostip})
 	return result, nil
 }
+
+
+func getHostIP() (string, error) {
+	ifaces, err := net.Interfaces()
+	if nil != err {
+		return "", err
+	}
+	for _, i := range ifaces {
+		if i.Name == "flannel.1" || i.Name == "docker0" {
+			continue
+		}
+		addrs, err := i.Addrs()
+		if nil != err {
+			return "", err
+		}
+		var ip net.IP
+		for _, addr := range addrs {
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			break
+		}
+		if i.Name == "eth1" {
+			return ip.String(), nil
+		}
+		if ipFilter(ip) {
+			return ip.String(), nil
+		}
+	}
+	return "", fmt.Errorf("can not find legal host ip.")
+}
+
+var (
+	ip_10_start net.IP = net.ParseIP("10.0.0.0")
+	ip_10_end net.IP = net.ParseIP("10.255.255.255")
+	ip_172_start net.IP = net.ParseIP("172.16.0.0")
+	ip_172_end net.IP = net.ParseIP("172.31.255.255")
+	ip_192_start net.IP = net.ParseIP("192.168.0.0")
+	ip_192_end net.IP = net.ParseIP("192.168.255.255")
+)
+
+
+func ipFilter(test net.IP) bool {
+	if isLegalIP(ip_10_start, ip_10_end, test) ||
+		isLegalIP(ip_172_start, ip_172_end, test) ||
+		isLegalIP(ip_192_start, ip_192_end, test) {
+		return true
+	}
+	return false
+}
+
+func isLegalIP(from net.IP, to net.IP, test net.IP) bool {
+	if from == nil || to == nil || test == nil {
+		return false
+	}
+
+	from16 := from.To16()
+	to16 := to.To16()
+	test16 := test.To16()
+	if from16 == nil || to16 == nil || test16 == nil {
+		return false
+	}
+
+	if bytes.Compare(test16, from16) >= 0 && bytes.Compare(test16, to16) <= 0 {
+		return true
+	}
+	return false
+}
+
 
 func (kl *Kubelet) podFieldSelectorRuntimeValue(fs *api.ObjectFieldSelector, pod *api.Pod, podIP string) (string, error) {
 	internalFieldPath, _, err := api.Scheme.ConvertFieldLabel(fs.APIVersion, "Pod", fs.FieldPath, "")
