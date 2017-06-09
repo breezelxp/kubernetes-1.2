@@ -179,7 +179,10 @@ func UnsecuredKubeletConfig(s *options.KubeletServer) (*KubeletConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	var clusterDNS []net.IP
+	for _, dns := range s.ClusterDNS {
+		clusterDNS = append(clusterDNS, net.ParseIP(dns))
+	}
 	return &KubeletConfig{
 		Address:                   net.ParseIP(s.Address),
 		AllowPrivileged:           s.AllowPrivileged,
@@ -188,7 +191,8 @@ func UnsecuredKubeletConfig(s *options.KubeletServer) (*KubeletConfig, error) {
 		VolumeStatsAggPeriod:      s.VolumeStatsAggPeriod.Duration,
 		CgroupRoot:                s.CgroupRoot,
 		Cloud:                     nil, // cloud provider might start background processes
-		ClusterDNS:                net.ParseIP(s.ClusterDNS),
+		ClusterDNS:                clusterDNS,
+		//ClusterDNS:                net.ParseIP(s.ClusterDNS),
 		ClusterDomain:             s.ClusterDomain,
 		ConfigFile:                s.Config,
 		ConfigureCBR0:             s.ConfigureCBR0,
@@ -502,7 +506,7 @@ func SimpleKubelet(client *clientset.Clientset,
 	osInterface kubecontainer.OSInterface,
 	fileCheckFrequency, httpCheckFrequency, minimumGCAge, nodeStatusUpdateFrequency, syncFrequency, outOfDiskTransitionFrequency time.Duration,
 	maxPods int,
-	containerManager cm.ContainerManager, clusterDNS net.IP) *KubeletConfig {
+	containerManager cm.ContainerManager, clusterDNS []net.IP) *KubeletConfig {
 	imageGCPolicy := kubelet.ImageGCPolicy{
 		HighThresholdPercent: 90,
 		LowThresholdPercent:  80,
@@ -511,6 +515,7 @@ func SimpleKubelet(client *clientset.Clientset,
 		DockerFreeDiskMB: 256,
 		RootFreeDiskMB:   256,
 	}
+
 
 	kcfg := KubeletConfig{
 		Address:                 net.ParseIP(address),
@@ -697,7 +702,7 @@ type KubeletConfig struct {
 	VolumeStatsAggPeriod           time.Duration
 	CgroupRoot                     string
 	Cloud                          cloudprovider.Interface
-	ClusterDNS                     net.IP
+	ClusterDNS                     []net.IP
 	ClusterDomain                  string
 	ConfigFile                     string
 	ConfigureCBR0                  bool

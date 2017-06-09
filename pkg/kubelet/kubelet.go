@@ -174,7 +174,7 @@ func NewMainKubelet(
 	registerSchedulable bool,
 	standaloneMode bool,
 	clusterDomain string,
-	clusterDNS net.IP,
+	clusterDNS []net.IP,
 	masterServiceNamespace string,
 	volumePlugins []volume.VolumePlugin,
 	networkPlugins []network.NetworkPlugin,
@@ -572,7 +572,7 @@ type Kubelet struct {
 	clusterDomain string
 
 	// If non-nil, use this for container DNS server.
-	clusterDNS net.IP
+	clusterDNS []net.IP
 
 	masterServiceNamespace string
 	serviceLister          serviceLister
@@ -1792,7 +1792,11 @@ func (kl *Kubelet) GetClusterDNS(pod *api.Pod) ([]string, []string, error) {
 	// for a pod with DNSClusterFirst policy, the cluster DNS server is the only nameserver configured for
 	// the pod. The cluster DNS server itself will forward queries to other nameservers that is configured to use,
 	// in case the cluster DNS server cannot resolve the DNS query itself
-	dns := []string{kl.clusterDNS.String()}
+	var dns []string
+	for _, d := range kl.clusterDNS {
+		dns = append(dns, d.String())
+	}
+	//dns := []string{kl.clusterDNS.String()}
 
 	var dnsSearch []string
 	if kl.clusterDomain != "" {
